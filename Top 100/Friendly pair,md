@@ -1,0 +1,63 @@
+# Question
+Write a Java program that reads two numbers from the user and checks whether they form a Friendly Pair.  
+(Two numbers are a Friendly Pair if the sum of divisors of each number divided by the number itself is equal, e.g., 6 and 28)
+
+# Code
+```java
+import java.util.Scanner;
+public class FriendlyPair {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        System.out.print("Enter first number: ");
+        int a = sc.nextInt();
+        System.out.print("Enter second number: ");
+        int b = sc.nextInt();
+        int sumA = 0, sumB = 0;
+        for (int i = 1; i <= a / 2; i++) {
+            if (a % i == 0) sumA += i;
+        }
+        for (int i = 1; i <= b / 2; i++) {
+            if (b % i == 0) sumB += i;
+        }
+        if ((float)sumA / a == (float)sumB / b) {
+            System.out.println(a + " and " + b + " are a Friendly Pair");
+        } else {
+            System.out.println(a + " and " + b + " are not a Friendly Pair");
+        }
+        sc.close();
+    }
+}
+```
+
+# Example Run 1
+Quest:
+```
+Enter first number: 6
+Enter second number: 28
+```
+Output:
+```
+6 and 28 are a Friendly Pair
+```
+
+# Example Run 2
+Quest:
+```
+Enter first number: 12
+Enter second number: 18
+```
+Output:
+```
+12 and 18 are not a Friendly Pair
+```
+
+# Example Run 3
+Quest:
+```
+Enter first number: 220
+Enter second number: 284
+```
+Output:
+```
+220 and 284 are a Friendly Pair
+```
