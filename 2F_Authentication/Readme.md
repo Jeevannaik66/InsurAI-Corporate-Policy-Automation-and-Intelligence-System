@@ -113,8 +113,4 @@ http://localhost:5000
 * JWT tokens are valid for **1 hour**.
 * On logout, simply remove the token on the client side.
 
----
 
-
-Would you like me to also add a **`screenshots/README_PLACEHOLDER.md` file** in the repo with instructions on where to upload screenshots, so it’s easier for you to just drop images and push to GitHub?
-```
