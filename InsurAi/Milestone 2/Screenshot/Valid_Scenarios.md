@@ -1,4 +1,4 @@
-# ✅ Validation (Valid) Scenario Test Screenshots
+# ✅ Validation Scenario Test Screenshots
 
 This folder contains screenshots of **successful (valid) test cases** for Milestone 2: Policy Management, User Management, Employee Management, and Agent-Employee Interaction.  
 Each test confirms that the system performs correctly when valid inputs are given.
@@ -25,7 +25,7 @@ Each test confirms that the system performs correctly when valid inputs are give
 
 <img width="1755" height="1618" alt="image" src="https://github.com/user-attachments/assets/595d3e85-db1a-4035-b5a1-0b22f87950d9" />
 
-<img width="1755" height="1618" alt="image" src="https://github.com/user-attachments/assets/0e8dd94a-4bc4-4bb0-99c3-c2b4f35a2326" />
+<img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/c3c768ec-ef2d-4069-a72f-4e0427b85c4c" />
 
 
 ---
@@ -139,3 +139,4 @@ Each test confirms that the system performs correctly when valid inputs are give
 <img width="1755" height="902" alt="image" src="https://github.com/user-attachments/assets/a01afa8e-9ccd-4f11-8f51-0cf172ec551c" />
 
 ---
+
