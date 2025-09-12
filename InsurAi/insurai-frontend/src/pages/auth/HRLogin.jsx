@@ -5,12 +5,28 @@ import "bootstrap/dist/css/bootstrap.min.css";
 export default function HrLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errorEmail, setErrorEmail] = useState("");
+  const [errorPassword, setErrorPassword] = useState("");
   const navigate = useNavigate();
+
+  const validateEmail = (email) => {
+    // Strict email regex
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z]{2,})+$/;
+    return re.test(email);
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
+
+    // Reset previous errors
+    setErrorEmail("");
+    setErrorPassword("");
+
+    // Client-side email validation
+    if (!validateEmail(email)) {
+      setErrorEmail("⚠️ Please enter a valid email address (e.g., user@example.com).");
+      return;
+    }
 
     try {
       const res = await fetch("http://localhost:8080/hr/login", {
@@ -21,7 +37,19 @@ export default function HrLogin() {
 
       if (!res.ok) {
         const text = await res.text();
-        throw new Error(text || "Login failed");
+
+        // Try parsing JSON if server sends structured error
+        let serverError = text;
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed?.email) setErrorEmail(parsed.email);
+          if (parsed?.password) setErrorPassword(parsed.password);
+          serverError = parsed?.message || parsed || text;
+        } catch (err) {
+          serverError = text || "Login failed";
+        }
+
+        throw new Error(serverError);
       }
 
       const data = await res.json();
@@ -32,7 +60,9 @@ export default function HrLogin() {
       navigate("/hr/dashboard");
     } catch (err) {
       console.error("HR Login error:", err);
-      setError(err.message);
+      if (!errorEmail && !errorPassword) {
+        setErrorPassword(err.message);
+      }
     }
   };
 
@@ -80,35 +110,44 @@ export default function HrLogin() {
           <p className="text-muted mb-0">Access your dashboard</p>
         </div>
 
-        {/* Error Alert */}
-        {error && <div className="alert alert-danger text-center">{error}</div>}
-
         {/* Login Form */}
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} autoComplete="on">
           <div className="mb-3">
-            <label className="form-label fw-semibold">Email</label>
+            <label className="form-label fw-semibold" htmlFor="hr-email">
+              Email
+            </label>
             <input
               type="email"
-              className="form-control shadow-sm"
+              id="hr-email"
+              name="username"
+              autoComplete="username"
+              className={`form-control shadow-sm ${errorEmail ? "is-invalid" : ""}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Enter your email"
               style={{ borderRadius: "10px" }}
             />
+            {errorEmail && <div className="invalid-feedback">{errorEmail}</div>}
           </div>
 
           <div className="mb-4">
-            <label className="form-label fw-semibold">Password</label>
+            <label className="form-label fw-semibold" htmlFor="hr-password">
+              Password
+            </label>
             <input
               type="password"
-              className="form-control shadow-sm"
+              id="hr-password"
+              name="password"
+              autoComplete="current-password"
+              className={`form-control shadow-sm ${errorPassword ? "is-invalid" : ""}`}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="Enter your password"
               style={{ borderRadius: "10px" }}
             />
+            {errorPassword && <div className="invalid-feedback">{errorPassword}</div>}
           </div>
 
           <button
@@ -127,7 +166,11 @@ export default function HrLogin() {
 
         {/* Footer */}
         <div className="text-center mt-4">
-          <Link to="/" className="fw-semibold text-decoration-none" style={{ color: "#f57c00" }}>
+          <Link
+            to="/"
+            className="fw-semibold text-decoration-none"
+            style={{ color: "#f57c00" }}
+          >
             Back to Home
           </Link>
         </div>

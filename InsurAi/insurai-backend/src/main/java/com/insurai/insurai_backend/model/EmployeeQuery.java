@@ -76,17 +76,19 @@ public class EmployeeQuery {
     }
 
     // Getters and Setters
-    public Long getId() { return id; }
-    public String getQueryText() { return queryText; }
-    public void setQueryText(String queryText) { this.queryText = queryText; }
-    public String getResponse() { return response; }
-    public void setResponse(String response) { this.response = response; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public Employee getEmployee() { return employee; }
-    public void setEmployee(Employee employee) { this.employee = employee; }
-    public Agent getAgent() { return agent; }
-    public void setAgent(Agent agent) { this.agent = agent; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
+public Long getId() { return id; }
+public String getQueryText() { return queryText; }
+public void setQueryText(String queryText) { this.queryText = queryText; }
+public String getResponse() { return response; }
+public void setResponse(String response) { this.response = response; }
+public String getStatus() { return status; }
+public void setStatus(String status) { this.status = status; }
+public Employee getEmployee() { return employee; }
+public void setEmployee(Employee employee) { this.employee = employee; }
+public Agent getAgent() { return agent; }
+public void setAgent(Agent agent) { this.agent = agent; }
+public LocalDateTime getCreatedAt() { return createdAt; }
+public LocalDateTime getUpdatedAt() { return updatedAt; }
+public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; } // <--- ADD THIS
+
 }

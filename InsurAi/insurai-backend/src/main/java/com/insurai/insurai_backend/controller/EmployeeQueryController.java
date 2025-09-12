@@ -5,8 +5,15 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.insurai.insurai_backend.config.JwtUtil;
 import com.insurai.insurai_backend.model.Agent;
 import com.insurai.insurai_backend.model.AgentAvailability;
 import com.insurai.insurai_backend.model.Employee;
@@ -33,17 +40,32 @@ public class EmployeeQueryController {
     @Autowired
     private AgentAvailabilityRepository agentAvailabilityRepository;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     // ================= Employee Submits a Query =================
     @PostMapping("/queries")
     public ResponseEntity<?> submitQuery(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestParam Long agentId,
             @RequestParam String queryText
     ) {
         try {
-            // For testing, using employee with ID 1
-            Employee emp = employeeRepository.findById(1L).orElse(null);
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(403).body("Missing or invalid Authorization header");
+            }
+
+            String token = authHeader.substring(7).trim();
+            String email = jwtUtil.extractEmail(token);
+            String role = jwtUtil.extractRole(token);
+
+            if (!"EMPLOYEE".equalsIgnoreCase(role)) {
+                return ResponseEntity.status(403).body("Unauthorized: not an employee");
+            }
+
+            Employee emp = employeeRepository.findByEmail(email).orElse(null);
             if (emp == null) {
-                return ResponseEntity.badRequest().body("Employee not found");
+                return ResponseEntity.status(403).body("Invalid token: employee not found");
             }
 
             Agent agent = agentRepository.findById(agentId).orElse(null);
@@ -59,12 +81,11 @@ public class EmployeeQueryController {
                     .map(a -> a.isAvailable() && (a.getEndTime() == null || a.getEndTime().isAfter(LocalDateTime.now())))
                     .orElse(false);
 
-            agent.setAvailable(isOnline);
-
             if (!isOnline) {
                 return ResponseEntity.badRequest().body("Selected agent is not available");
             }
 
+            // Submit query
             EmployeeQuery query = queryService.submitQuery(emp.getId(), agentId, queryText);
             return ResponseEntity.ok(query);
 
@@ -73,48 +94,34 @@ public class EmployeeQueryController {
         }
     }
 
-    // ================= Agent Responds to Query =================
-    @PutMapping("/queries/respond/{queryId}")
-    public ResponseEntity<?> respondToQuery(
-            @PathVariable Long queryId,
-            @RequestBody RespondQueryRequest request
+    // ================= Get all queries for logged-in employee =================
+    @GetMapping("/queries")
+    public ResponseEntity<?> getEmployeeQueries(
+            @RequestHeader(value = "Authorization", required = false) String authHeader
     ) {
         try {
-            if (request.getAgentId() == null) {
-                return ResponseEntity.badRequest().body("Agent ID is required");
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(403).body("Missing or invalid Authorization header");
             }
 
-            EmployeeQuery query = queryService.getQueryById(queryId)
-                    .orElseThrow(() -> new RuntimeException("Query not found"));
+            String token = authHeader.substring(7).trim();
+            String email = jwtUtil.extractEmail(token);
+            String role = jwtUtil.extractRole(token);
 
-            // Validate agent assignment
-            if (!query.getAgent().getId().equals(request.getAgentId())) {
-                return ResponseEntity.status(403).body("Unauthorized: You are not assigned to this query");
+            if (!"EMPLOYEE".equalsIgnoreCase(role)) {
+                return ResponseEntity.status(403).body("Unauthorized: not an employee");
             }
 
-            query.setResponse(request.getResponse());
-            query.setStatus("Resolved");
-            query.setUpdatedAt(LocalDateTime.now());
+            Employee emp = employeeRepository.findByEmail(email).orElse(null);
+            if (emp == null) {
+                return ResponseEntity.status(403).body("Invalid token: employee not found");
+            }
 
-            EmployeeQuery updatedQuery = queryService.saveQuery(query);
-            return ResponseEntity.ok(updatedQuery);
+            // Fetch all queries for this employee
+            return ResponseEntity.ok(queryService.getQueriesForEmployee(emp.getId()));
 
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(404).body(e.getMessage());
         } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error updating query: " + e.getMessage());
+            return ResponseEntity.status(500).body(e.getMessage());
         }
-    }
-
-    // ================= DTO for responding to a query =================
-    public static class RespondQueryRequest {
-        private Long agentId;
-        private String response;
-
-        public Long getAgentId() { return agentId; }
-        public void setAgentId(Long agentId) { this.agentId = agentId; }
-
-        public String getResponse() { return response; }
-        public void setResponse(String response) { this.response = response; }
     }
 }

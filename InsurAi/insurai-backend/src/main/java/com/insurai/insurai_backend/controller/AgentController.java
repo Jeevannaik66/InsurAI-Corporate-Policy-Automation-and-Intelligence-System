@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,16 +23,18 @@ import com.insurai.insurai_backend.service.AgentService;
 import com.insurai.insurai_backend.service.EmployeeQueryService;
 
 import lombok.RequiredArgsConstructor;
+import com.insurai.insurai_backend.config.JwtUtil;
 
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/agent")
-@RequiredArgsConstructor
 @CrossOrigin(origins = "http://localhost:5173")
 public class AgentController {
 
     private final AgentService agentService;
     private final AgentAvailabilityService availabilityService;
     private final EmployeeQueryService queryService;
+    private final JwtUtil jwtUtil;  
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     // -------------------- Get all agents --------------------
@@ -67,7 +70,7 @@ public class AgentController {
                 return ResponseEntity.status(401).body("Invalid password");
             }
 
-            String token = java.util.UUID.randomUUID().toString();
+            String token = jwtUtil.generateToken(agent.getEmail(), "AGENT");
 
             AgentLoginResponse response = new AgentLoginResponse(
                     "Login successful",
@@ -148,25 +151,96 @@ public class AgentController {
         return ResponseEntity.ok(pendingQueries);
     }
 
-    // -------------------- Respond to a query --------------------
-   @PutMapping("/queries/respond/{queryId}")
-public ResponseEntity<?> respondToQuery(@PathVariable Long queryId, @RequestBody RespondQueryRequest request) {
-    try {
-        EmployeeQuery query = queryService.getQueryById(queryId)
-                .orElseThrow(() -> new RuntimeException("Query not found"));
+// -------------------- Respond to a query with full debug logs --------------------
+@PutMapping("/queries/respond/{queryId}")
+public ResponseEntity<?> respondToQuery(
+        @PathVariable Long queryId,
+        @RequestBody RespondQueryRequest request,
+        @RequestHeader(value = "Authorization", required = false) String authHeader
+) {
+    System.out.println("\n=== [DEBUG] respondToQuery CALLED ===");
+    System.out.println("QueryId: " + queryId);
+    System.out.println("Request body response: " + (request != null ? request.getResponse() : "null"));
+    System.out.println("Authorization header received: " + authHeader);
 
+    try {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            System.out.println("[DEBUG] Missing or invalid Authorization header");
+            return ResponseEntity.status(403).body("Missing or invalid Authorization header");
+        }
+
+        String token = authHeader.substring(7).trim();
+        System.out.println("[DEBUG] Extracted token: " + token);
+
+        String email = jwtUtil.extractEmail(token);
+        String role = jwtUtil.extractRole(token);
+
+        System.out.println("[DEBUG] Extracted email from token: " + email);
+        System.out.println("[DEBUG] Extracted role from token: " + role);
+
+        if (email == null) {
+            System.out.println("[DEBUG] Email from token is null");
+        }
+        if (role == null) {
+            System.out.println("[DEBUG] Role from token is null");
+        }
+
+        if (email == null || role == null || !"AGENT".equalsIgnoreCase(role)) {
+            System.out.println("[DEBUG] Role check failed. Required: AGENT, Found: " + role);
+            return ResponseEntity.status(403).body("Unauthorized: not an agent");
+        }
+
+        // Fetch agent by email
+        Agent agent = agentService.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("Agent not found in DB"));
+        System.out.println("[DEBUG] Agent found in DB: " + agent.getId() + " (" + agent.getEmail() + ")");
+
+        // Fetch query
+        EmployeeQuery query = queryService.findById(queryId)
+                .orElseThrow(() -> new RuntimeException("Query not found"));
+        System.out.println("[DEBUG] Query found: " + query.getId() + " assigned to agentId=" + 
+                           (query.getAgent() != null ? query.getAgent().getId() : "null"));
+
+        // ✅ Ensure this agent is assigned to this query
+        if (query.getAgent() == null || !query.getAgent().getId().equals(agent.getId())) {
+            System.out.println("[DEBUG] Query assignment check failed. AgentId=" + agent.getId() +
+                               " QueryAgentId=" + (query.getAgent() != null ? query.getAgent().getId() : "null"));
+            return ResponseEntity.status(403).body("You are not assigned to this query");
+        }
+
+        // Update query response and status
         query.setResponse(request.getResponse());
-        query.setStatus("Answered");
+        query.setStatus("resolved");
         query.setUpdatedAt(LocalDateTime.now());
 
-        EmployeeQuery updatedQuery = queryService.saveQuery(query);
-        return ResponseEntity.ok(updatedQuery);
+        EmployeeQuery updatedQuery = queryService.save(query);
+        System.out.println("[DEBUG] Query updated successfully with response: " + updatedQuery.getResponse());
+
+        // ✅ Return DTO instead of full entity
+        EmployeeQueryDTO dto = new EmployeeQueryDTO(
+                updatedQuery.getId(),
+                updatedQuery.getQueryText(),
+                updatedQuery.getResponse(),
+                updatedQuery.getStatus(),
+                updatedQuery.getCreatedAt(),
+                updatedQuery.getUpdatedAt(),
+                updatedQuery.getEmployee().getId(),
+                updatedQuery.getAgent().getId()
+        );
+
+        System.out.println("=== [DEBUG] respondToQuery COMPLETED SUCCESSFULLY ===\n");
+        return ResponseEntity.ok(dto);
+
     } catch (RuntimeException e) {
+        System.out.println("[DEBUG] RuntimeException: " + e.getMessage());
         return ResponseEntity.status(404).body(e.getMessage());
     } catch (Exception e) {
+        System.out.println("[DEBUG] Exception: " + e.getMessage());
+        e.printStackTrace();
         return ResponseEntity.status(500).body("Error updating query: " + e.getMessage());
     }
 }
+
 
 
     // -------------------- Inner class for Agent login response --------------------
@@ -219,4 +293,39 @@ public ResponseEntity<?> respondToQuery(@PathVariable Long queryId, @RequestBody
         public String getResponse() { return response; }
         public void setResponse(String response) { this.response = response; }
     }
+// -------------------- DTO for cleaned query response --------------------
+public static class EmployeeQueryDTO {
+    private Long id;
+    private String queryText;
+    private String response;
+    private String status;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private Long employeeId;
+    private Long agentId;
+
+    public EmployeeQueryDTO(Long id, String queryText, String response, String status,
+                            LocalDateTime createdAt, LocalDateTime updatedAt,
+                            Long employeeId, Long agentId) {
+        this.id = id;
+        this.queryText = queryText;
+        this.response = response;
+        this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.employeeId = employeeId;
+        this.agentId = agentId;
+    }
+
+    // Getters only (no setters needed for DTO)
+    public Long getId() { return id; }
+    public String getQueryText() { return queryText; }
+    public String getResponse() { return response; }
+    public String getStatus() { return status; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Long getEmployeeId() { return employeeId; }
+    public Long getAgentId() { return agentId; }
+}
+
 }

@@ -1,6 +1,7 @@
 package com.insurai.insurai_backend.service;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -56,6 +57,7 @@ public class EmployeeQueryService {
 
         query.setResponse(response);
         query.setStatus("Resolved"); // consistent with frontend
+        query.setUpdatedAt(java.time.LocalDateTime.now()); // update timestamp
         return queryRepository.save(query);
     }
 
@@ -64,6 +66,7 @@ public class EmployeeQueryService {
         if (query == null) throw new Exception("Query cannot be null");
         query.setResponse(response);
         query.setStatus("Resolved");
+        query.setUpdatedAt(java.time.LocalDateTime.now()); // update timestamp
         return queryRepository.save(query);
     }
 
@@ -86,5 +89,14 @@ public class EmployeeQueryService {
 
     public List<EmployeeQuery> getAllPendingQueries() {
         return queryRepository.findByStatus("pending");
+    }
+
+    // -------------------- New methods to match controller --------------------
+    public Optional<EmployeeQuery> findById(Long queryId) {
+        return queryRepository.findById(queryId);
+    }
+
+    public EmployeeQuery save(EmployeeQuery query) {
+        return queryRepository.save(query);
     }
 }

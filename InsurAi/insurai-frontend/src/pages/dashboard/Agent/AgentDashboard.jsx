@@ -7,6 +7,7 @@ import axios from "axios";
 
 export default function AgentDashboard() {
   const navigate = useNavigate();
+  const [filter, setFilter] = useState("All");
   const [activeTab, setActiveTab] = useState("home");
   const [availability, setAvailability] = useState(false);
   const [employeeQueries, setEmployeeQueries] = useState([]);
@@ -25,14 +26,25 @@ export default function AgentDashboard() {
   useEffect(() => {
     const storedAgentId = localStorage.getItem("agentId");
     const storedAgentName = localStorage.getItem("agentName");
+    const token = localStorage.getItem("token"); // retrieve token
+
+    if (!token) {
+      alert("No token found, please login again");
+      navigate("/agent/login");
+      return;
+    }
 
     if (storedAgentId && storedAgentName) {
       const id = parseInt(storedAgentId);
       setAgentId(id);
       setAgentName(storedAgentName);
 
+      const axiosConfig = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+
       // Fetch current availability
-      axios.get(`http://localhost:8080/agent/${id}/availability`)
+      axios.get(`http://localhost:8080/agent/${id}/availability`, axiosConfig)
         .then(res => {
           if (res.data && typeof res.data.available === "boolean") {
             setAvailability(res.data.available);
@@ -41,7 +53,7 @@ export default function AgentDashboard() {
         .catch(err => console.error("Failed to fetch availability", err));
 
       // Fetch pending employee queries assigned to this agent
-      axios.get(`http://localhost:8080/agent/queries/pending/${id}`)
+      axios.get(`http://localhost:8080/agent/queries/pending/${id}`, axiosConfig)
         .then(res => {
           if (res.data) {
             const formattedQueries = res.data.map(q => ({
@@ -71,14 +83,19 @@ export default function AgentDashboard() {
   const toggleAvailability = async () => {
     try {
       const newStatus = !availability;
+      const token = localStorage.getItem("token");
+      if (!token) return alert("No token found, please login again");
+
+      const axiosConfig = { headers: { Authorization: `Bearer ${token}` } };
+
       await axios.post("http://localhost:8080/agent/availability", {
         agentId,
         available: newStatus,
         startTime: new Date().toISOString(),
         endTime: null
-      });
+      }, axiosConfig);
 
-      const res = await axios.get(`http://localhost:8080/agent/${agentId}/availability`);
+      const res = await axios.get(`http://localhost:8080/agent/${agentId}/availability`, axiosConfig);
       if (res.data) setAvailability(res.data.available);
 
       alert(`You are now ${newStatus ? "available" : "unavailable"} for queries`);
@@ -96,6 +113,11 @@ export default function AgentDashboard() {
     }
 
     try {
+      const token = localStorage.getItem("token");
+      if (!token) return alert("No token found, please login again");
+
+      const axiosConfig = { headers: { Authorization: `Bearer ${token}` } };
+
       const startISO = new Date(futureFrom).toISOString();
       const endISO = new Date(futureTo).toISOString();
 
@@ -104,9 +126,9 @@ export default function AgentDashboard() {
         available: true,
         startTime: startISO,
         endTime: endISO
-      });
+      }, axiosConfig);
 
-      const res = await axios.get(`http://localhost:8080/agent/${agentId}/availability`);
+      const res = await axios.get(`http://localhost:8080/agent/${agentId}/availability`, axiosConfig);
       if (res.data) setAvailability(res.data.available);
 
       alert("Future availability scheduled successfully!");
@@ -118,42 +140,48 @@ export default function AgentDashboard() {
     }
   };
 
-  // -------------------- Resolve query --------------------
-  const resolveQuery = (id) => {
-    setEmployeeQueries((queries) =>
-      queries.map((query) =>
-        query.id === id ? { ...query, status: "Resolved" } : query
-      )
-    );
-    alert("Query marked as resolved");
-  };
-
   // -------------------- Respond to a query --------------------
-const respondToQuery = async (id, responseText) => {
-  try {
-    const query = employeeQueries.find(q => q.id === id);
-    if (!query) return alert("Query not found");
+  const respondToQuery = async (id, responseText) => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return alert("No token found, please login again");
 
-    // Use the agent assigned to this query
-    await axios.put(`http://localhost:8080/employee/queries/respond/${id}`, {
-      agentId: query.agentId, // make sure you include agentId when loading queries
-      response: responseText
-    });
+      const query = employeeQueries.find(q => q.id === id);
+      if (!query) return alert("Query not found");
 
-    setEmployeeQueries((queries) =>
-      queries.map((q) =>
-        q.id === id ? { ...q, response: responseText, status: "Resolved" } : q
-      )
-    );
+      // --- DEBUG LOG ---
+      console.log("Sending PUT request to respond to query:", id);
+      console.log("Token being sent:", token);
+      // -----------------
 
-    alert("Response sent successfully!");
-  } catch (error) {
-    console.error("Failed to send response:", error);
-    alert("Failed to send response");
-  }
-};
+      const res = await axios({
+        method: "put",
+        url: `http://localhost:8080/agent/queries/respond/${id}`,
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+        data: {
+          response: responseText
+        }
+      });
 
+      console.log("Response received from backend:", res.data);
 
+      // Update UI
+      setEmployeeQueries(prev =>
+        prev.map(q =>
+          q.id === id ? { ...q, status: "Resolved", response: responseText } : q
+        )
+      );
+
+      alert("Response sent successfully!");
+    } catch (error) {
+      // Print full error for debugging
+      console.error("Failed to send response:", error.response?.data || error.message);
+      alert("Failed to send response");
+    }
+  };
 
   // -------------------- Handle response input changes --------------------
   const handleResponseChange = (id, value) => {
@@ -168,127 +196,161 @@ const respondToQuery = async (id, responseText) => {
 
   
   // Render content based on active tab
-  const renderContent = () => {
-    switch (activeTab) {
-      case "home":
-        return (
-          <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h4>Agent Dashboard Overview</h4>
-              <div className="d-flex align-items-center">
-                <span className={`badge ${availability ? "bg-success" : "bg-warning"} me-2`}>
-                  {availability ? "Available" : "Unavailable"}
-                </span>
-                <button 
-                  className={`btn btn-sm ${availability ? "btn-warning" : "btn-success"}`}
-                  onClick={toggleAvailability}
-                >
-                  {availability ? "Set Unavailable" : "Set Available"}
-                </button>
-              </div>
+const renderContent = () => {
+  switch (activeTab) {
+    case "home":
+      const pendingQueriesCount = employeeQueries.filter(q => !q.response || q.response.trim() === "").length;
+      
+      return (
+        <div>
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4>Agent Dashboard Overview</h4>
+            <div className="d-flex align-items-center">
+              <span className={`badge ${availability ? "bg-success" : "bg-warning"} me-2`}>
+                {availability ? "Available" : "Unavailable"}
+              </span>
+              <button 
+                className={`btn btn-sm ${availability ? "btn-warning" : "btn-success"}`}
+                onClick={toggleAvailability}
+              >
+                {availability ? "Set Unavailable" : "Set Available"}
+              </button>
             </div>
-            
-            <div className="row mb-4">
-              <div className="col-md-3 mb-3">
-                <div className="card bg-success text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Pending Queries</h5>
-                    <h2 className="card-text">2</h2>
-                    <p><i className="bi bi-question-circle-fill"></i> Require your attention</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-primary text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Assisted Claims</h5>
-                    <h2 className="card-text">15</h2>
-                    <p><i className="bi bi-check-circle-fill"></i> This month</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-info text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Avg. Response Time</h5>
-                    <h2 className="card-text">2.5h</h2>
-                    <p><i className="bi bi-clock-fill"></i> Faster than average</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-warning text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Satisfaction Rate</h5>
-                    <h2 className="card-text">94%</h2>
-                    <p><i className="bi bi-star-fill"></i> Employee feedback</p>
-                  </div>
+          </div>
+          
+          <div className="row mb-4">
+            <div className="col-md-3 mb-3">
+              <div className="card bg-success text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Pending Queries</h5>
+                  <h2 className="card-text">{pendingQueriesCount}</h2>
+                  <p><i className="bi bi-question-circle-fill"></i> Require your attention</p>
                 </div>
               </div>
             </div>
-
-            <div className="row">
-              <div className="col-md-6 mb-4">
-                <div className="card">
-                  <div className="card-header bg-success text-white">
-                    <h5 className="mb-0">Recent Employee Queries</h5>
-                  </div>
-                  <div className="card-body">
-                    {employeeQueries.slice(0, 3).map(query => (
-                      <div key={query.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
-                        <div>
-                          <h6 className="mb-0">{query.employee}</h6>
-                          <small className="text-muted">{query.query}</small>
-                        </div>
-                        <span className={`badge ${query.status === 'Pending' ? 'bg-warning' : query.status === 'Resolved' ? 'bg-success' : 'bg-info'}`}>
-                          {query.status}
-                        </span>
-                      </div>
-                    ))}
-                    <button className="btn btn-outline-success mt-3 btn-sm" onClick={() => setActiveTab("queries")}>
-                      View All Queries
-                    </button>
-                  </div>
+            <div className="col-md-3 mb-3">
+              <div className="card bg-primary text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Assisted Claims</h5>
+                  <h2 className="card-text">{assistedClaims.length}</h2>
+                  <p><i className="bi bi-check-circle-fill"></i> This month</p>
                 </div>
               </div>
-
-              <div className="col-md-6 mb-4">
-                <div className="card">
-                  <div className="card-header bg-success text-white">
-                    <h5 className="mb-0">Recently Assisted Claims</h5>
-                  </div>
-                  <div className="card-body">
-                    {assistedClaims.slice(0, 3).map(claim => (
-                      <div key={claim.id} className="border-bottom py-2">
-                        <div className="d-flex justify-content-between">
-                          <h6 className="mb-0">{claim.employee}</h6>
-                          <span className={`badge ${claim.status === 'Approved' ? 'bg-success' : 'bg-warning'}`}>
-                            {claim.status}
-                          </span>
-                        </div>
-                        <small className="text-muted">{claim.type} • {claim.amount} • {claim.date}</small>
-                      </div>
-                    ))}
-                    <button className="btn btn-outline-success mt-3 btn-sm" onClick={() => setActiveTab("claims")}>
-                      View All Claims
-                    </button>
-                  </div>
+            </div>
+            <div className="col-md-3 mb-3">
+              <div className="card bg-info text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Avg. Response Time</h5>
+                  <h2 className="card-text">2.5h</h2>
+                  <p><i className="bi bi-clock-fill"></i> Faster than average</p>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3 mb-3">
+              <div className="card bg-warning text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Satisfaction Rate</h5>
+                  <h2 className="card-text">94%</h2>
+                  <p><i className="bi bi-star-fill"></i> Employee feedback</p>
                 </div>
               </div>
             </div>
           </div>
-        );
+
+          <div className="row">
+            <div className="col-md-6 mb-4">
+              <div className="card">
+                <div className="card-header bg-success text-white">
+                  <h5 className="mb-0">Recent Employee Queries</h5>
+                </div>
+                <div className="card-body">
+                  {employeeQueries.slice(0, 5).map(query => {
+                    const isAnswered = query.response && query.response.trim() !== "";
+                    return (
+                      <div key={query.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <div>
+                          <h6 className="mb-0">{query.employeeName || query.employee}</h6>
+                          <small className="text-muted">{query.queryText || query.query}</small>
+                        </div>
+                        <span className={`badge ${isAnswered ? 'bg-success' : 'bg-warning'}`}>
+                          {isAnswered ? 'Answered' : 'Pending'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {employeeQueries.length === 0 && (
+                    <p className="text-muted text-center py-3">No queries assigned yet</p>
+                  )}
+                  <button className="btn btn-outline-success mt-3 btn-sm" onClick={() => setActiveTab("queries")}>
+                    View All Queries
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-md-6 mb-4">
+              <div className="card">
+                <div className="card-header bg-success text-white">
+                  <h5 className="mb-0">Recently Assisted Claims</h5>
+                </div>
+                <div className="card-body">
+                  {assistedClaims.slice(0, 5).map(claim => (
+                    <div key={claim.id} className="border-bottom py-2">
+                      <div className="d-flex justify-content-between">
+                        <h6 className="mb-0">{claim.employeeName || claim.employee}</h6>
+                        <span className={`badge ${claim.status === 'Approved' ? 'bg-success' : 'bg-warning'}`}>
+                          {claim.status}
+                        </span>
+                      </div>
+                      <small className="text-muted">{claim.type} • {claim.amount} • {claim.date ? new Date(claim.date).toLocaleString() : "-"}</small>
+                    </div>
+                  ))}
+                  {assistedClaims.length === 0 && (
+                    <p className="text-muted text-center py-3">No claims assisted yet</p>
+                  )}
+                  <button className="btn btn-outline-success mt-3 btn-sm" onClick={() => setActiveTab("claims")}>
+                    View All Claims
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+
       
 case "queries":
   return (
-    <div>
+    <div className="p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h4>Employee Queries</h4>
         <span className={`badge ${availability ? "bg-success" : "bg-warning"}`}>
           {availability ? "Available for queries" : "Currently unavailable"}
         </span>
       </div>
-      
+
+      {/* Filter buttons */}
+      <div className="mb-3">
+        <button
+          className={`btn btn-sm me-2 ${filter === "All" ? "btn-primary" : "btn-outline-primary"}`}
+          onClick={() => setFilter("All")}
+        >
+          All
+        </button>
+        <button
+          className={`btn btn-sm me-2 ${filter === "Pending" ? "btn-warning" : "btn-outline-warning"}`}
+          onClick={() => setFilter("Pending")}
+        >
+          Pending
+        </button>
+        <button
+          className={`btn btn-sm ${filter === "Resolved" ? "btn-success" : "btn-outline-success"}`}
+          onClick={() => setFilter("Resolved")}
+        >
+          Resolved
+        </button>
+      </div>
+
       <div className="card">
         <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
           <h5 className="mb-0">All Employee Queries</h5>
@@ -296,48 +358,51 @@ case "queries":
             {employeeQueries.filter(q => q.status !== 'Resolved').length} Pending
           </span>
         </div>
-        <div className="card-body">
-          <div className="table-responsive">
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Query</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Response</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {employeeQueries.map(query => (
-                  <tr key={query.id}>
-                    <td>{query.employee}</td>
-                    <td>{query.query}</td>
-                    <td>{query.date}</td>
-                    <td>
-                      <span className={`badge ${
-                        query.status === 'Pending' ? 'bg-warning' :
-                        query.status === 'Resolved' ? 'bg-success' : 'bg-info'
-                      }`}>
-                        {query.status}
-                      </span>
-                    </td>
-                    <td>
-                      {query.status !== 'Resolved' ? (
-                        <input
-                          type="text"
-                          className="form-control form-control-sm"
-                          placeholder="Type your response"
-                          value={query.response || ""}
-                          onChange={(e) => handleResponseChange(query.id, e.target.value)}
-                        />
-                      ) : (
-                        query.response
-                      )}
-                    </td>
-                    <td>
-                      {query.status !== 'Resolved' && (
+
+        <div className="card-body table-responsive">
+          <table className="table table-striped">
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th>Query</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Response</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employeeQueries.filter(q =>
+                filter === "All" ? true : q.status === filter
+              ).map(query => (
+                <tr key={query.id}>
+                  <td>{query.employee}</td>
+                  <td>{query.query}</td>
+                  <td>{new Date(query.date).toLocaleString()}</td>
+                  <td>
+                    <span className={`badge ${
+                      query.status === 'Pending' ? 'bg-warning' :
+                      query.status === 'Resolved' ? 'bg-success' : 'bg-info'
+                    }`}>
+                      {query.status}
+                    </span>
+                  </td>
+                  <td>
+                    {query.status !== 'Resolved' ? (
+                      <input
+                        type="text"
+                        className="form-control form-control-sm"
+                        placeholder="Type your response"
+                        value={query.response || ""}
+                        onChange={(e) => handleResponseChange(query.id, e.target.value)}
+                      />
+                    ) : (
+                      query.response
+                    )}
+                  </td>
+                  <td>
+                    {query.status !== 'Resolved' && (
+                      <>
                         <button
                           className="btn btn-sm btn-outline-primary me-1"
                           onClick={() => {
@@ -350,20 +415,17 @@ case "queries":
                         >
                           <i className="bi bi-chat"></i> Respond
                         </button>
-                      )}
-                      {query.status !== 'Resolved' && (
+
                         <button
                           className="btn btn-sm btn-outline-success"
                           onClick={async () => {
                             try {
-                              // Call backend API to resolve query
                               await axios.put(`http://localhost:8080/agent/queries/respond/${query.id}`, {
                                 response: query.response || "Resolved"
                               });
-                              
-                              // Update UI after backend update
-                              setEmployeeQueries((queries) =>
-                                queries.map((q) =>
+
+                              setEmployeeQueries(prev =>
+                                prev.map(q =>
                                   q.id === query.id ? { ...q, status: "Resolved" } : q
                                 )
                               );
@@ -376,17 +438,27 @@ case "queries":
                         >
                           <i className="bi bi-check"></i> Resolve
                         </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {employeeQueries.filter(q =>
+                filter === "All" ? true : q.status === filter
+              ).length === 0 && (
+                <tr>
+                  <td colSpan="6" className="text-center py-3">
+                    <span className="text-muted">No queries to display</span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
   );
+
 
 
       

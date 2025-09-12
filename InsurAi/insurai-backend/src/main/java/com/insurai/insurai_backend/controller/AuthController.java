@@ -53,26 +53,32 @@ public class AuthController {
     }
 
     // ================= Employee Login =================
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        Employee emp = employeeRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // Check password
-        if (!passwordEncoder.matches(request.getPassword(), emp.getPassword())) {
-            return ResponseEntity.status(401).body("Invalid credentials");
-        }
-
-        // ------------------- FIX: Generate proper JWT token for employee -------------------
-        String token = jwtUtil.generateToken(emp.getEmail(), emp.getRole().name());
-
-        // Return token, role, and name for frontend
-        return ResponseEntity.ok(Map.of(
-                "token", token,
-                "role", emp.getRole().name(),
-                "name", emp.getName()
-        ));
+@PostMapping("/login")
+public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    // Check if employee exists
+    var empOptional = employeeRepository.findByEmail(request.getEmail());
+    if (empOptional.isEmpty()) {
+        return ResponseEntity.status(404).body("User not found"); // <-- return 404 instead of exception
     }
+
+    Employee emp = empOptional.get();
+
+    // Check password
+    if (!passwordEncoder.matches(request.getPassword(), emp.getPassword())) {
+        return ResponseEntity.status(401).body("Incorrect password"); // <-- 401 for wrong password
+    }
+
+    // Generate JWT
+    String token = jwtUtil.generateToken(emp.getEmail(), emp.getRole().name());
+
+    // Return token, role, and name
+    return ResponseEntity.ok(Map.of(
+            "token", token,
+            "role", emp.getRole().name(),
+            "name", emp.getName()
+    ));
+}
+
 
     // ================= Get All Employees =================
     @GetMapping("/employees")

@@ -42,6 +42,10 @@ export default function EmployeeDashboard() {
     fetchEmployeeData(token);
     fetchAgents(token);
     fetchEmployeeQueries(token);
+
+    // Optional: auto-refresh queries every 10-15 seconds
+    const interval = setInterval(() => fetchEmployeeQueries(token), 15000);
+    return () => clearInterval(interval);
   }, [navigate]);
 
   // ------------------ Fetch employee policies ------------------
@@ -85,11 +89,12 @@ export default function EmployeeDashboard() {
   const fetchEmployeeQueries = async (token) => {
     try {
       const response = await axios.get("http://localhost:8080/employee/queries", {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` } // ✅ important fix
       });
       setQueries(response.data);
     } catch (error) {
       console.error("Error fetching employee queries:", error);
+      if (error.response?.status === 403) navigate("/employee/login");
     }
   };
 
@@ -164,7 +169,7 @@ export default function EmployeeDashboard() {
       );
 
       const savedQuery = response.data;
-      setQueries([savedQuery, ...queries]);
+      setQueries([savedQuery, ...queries]); // ✅ update queries state to show new query
       showNotificationAlert("Query submitted successfully! An agent will respond shortly.");
 
       setNewQuery({ queryText: "" });
@@ -186,7 +191,6 @@ export default function EmployeeDashboard() {
     setTimeout(() => setShowNotification(false), 4000);
   };
 
-
   const handleDocumentUpload = (e) => {
     const files = e.target.files;
     if (files.length > 0) {
@@ -196,6 +200,8 @@ export default function EmployeeDashboard() {
       });
     }
   };
+
+
 
   // Updated PDF download function using jsPDF
 const downloadPolicy = (policy) => {
@@ -244,155 +250,153 @@ const downloadPolicy = (policy) => {
     fetchAvailability();
   }, []);
 
-  const renderHome = () => {
-    const activeClaims = claims.filter(claim => claim.status === "In Review").length;
-    const approvedClaims = claims.filter(claim => claim.status === "Approved").length;
-    const pendingQueries = queries.filter(query => query.status === "Pending").length;
+ const renderHome = () => {
+  const activeClaims = claims.filter(claim => claim.status === "In Review").length;
+  const approvedClaims = claims.filter(claim => claim.status === "Approved").length;
+  const pendingQueries = queries.filter(query => !query.response || query.response.trim() === "").length;
 
-    return (
-      <div className="p-4">
-        <h4 className="mb-4">Employee Dashboard Overview</h4>
+  return (
+    <div className="p-4">
+      <h4 className="mb-4">Employee Dashboard Overview</h4>
 
-        <div className="row mb-4">
-          <div className="col-md-3 mb-3">
-            <div className="card bg-primary text-white">
-              <div className="card-body">
-                <h5 className="card-title">My Policies</h5>
-                <h2 className="card-text">{policies.length}</h2>
-                <p>
-                  <i className="bi bi-file-earmark-text"></i> Active Policies
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3 mb-3">
-            <div className="card bg-success text-white">
-              <div className="card-body">
-                <h5 className="card-title">My Claims</h5>
-                <h2 className="card-text">{claims.length}</h2>
-                <p>
-                  <i className="bi bi-wallet2"></i> {approvedClaims} Approved
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3 mb-3">
-            <div className="card bg-warning text-white">
-              <div className="card-body">
-                <h5 className="card-title">Pending Queries</h5>
-                <h2 className="card-text">{pendingQueries}</h2>
-                <p>
-                  <i className="bi bi-question-circle"></i> Waiting for response
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-3 mb-3">
-            <div className="card bg-info text-white">
-              <div className="card-body">
-                <h5 className="card-title">Agent Availability</h5>
-                <h2 className="card-text">Online</h2>
-                <p>
-                  <i className="bi bi-person-check"></i> Support available
-                </p>
-              </div>
+      <div className="row mb-4">
+        <div className="col-md-3 mb-3">
+          <div className="card bg-primary text-white">
+            <div className="card-body">
+              <h5 className="card-title">My Policies</h5>
+              <h2 className="card-text">{policies.length}</h2>
+              <p><i className="bi bi-file-earmark-text"></i> Active Policies</p>
             </div>
           </div>
         </div>
-
-        <div className="row">
-          <div className="col-md-6 mb-4">
-            <div className="card">
-              <div className="card-header bg-primary text-white">
-                <h5 className="card-title mb-0">Recent Claims Activity</h5>
-              </div>
-              <div className="card-body">
-                <div className="list-group">
-                  {claims.slice(0, 5).map(claim => (
-                    <div key={claim.id} className="list-group-item">
-                      <div className="d-flex w-100 justify-content-between">
-                        <h6 className="mb-1">{claim.type} Claim #{claim.id}</h6>
-                        <small>{claim.submittedDate}</small>
-                      </div>
-                      <p className="mb-1">{claim.details}</p>
-                      <div className="d-flex justify-content-between align-items-center">
-                        <span className="fw-bold">{claim.amount}</span>
-                        <span className={`badge ${claim.status === 'Approved' ? 'bg-success' : claim.status === 'In Review' ? 'bg-warning' : 'bg-danger'}`}>
-                          {claim.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {claims.length === 0 && (
-                    <div className="text-center py-3">
-                      <p className="text-muted">No claims submitted yet</p>
-                      <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('newClaim')}>
-                        Submit Your First Claim
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-md-6 mb-4">
-            <div className="card">
-              <div className="card-header bg-primary text-white">
-                <h5 className="card-title mb-0">Recent Queries</h5>
-              </div>
-              <div className="card-body">
-                <div className="list-group">
-                  {queries.slice(0, 3).map(query => (
-                    <div key={query.id} className="list-group-item">
-                      <div className="d-flex w-100 justify-content-between">
-                        <h6 className="mb-1">{query.subject}</h6>
-                        <span className={`badge ${query.status === 'Resolved' ? 'bg-success' : query.status === 'In Progress' ? 'bg-primary' : 'bg-warning'}`}>
-                          {query.status}
-                        </span>
-                      </div>
-                      <p className="mb-1 text-truncate">{query.description}</p>
-                      <small className="text-muted">Created: {query.createdAt}</small>
-                    </div>
-                  ))}
-                  {queries.length === 0 && (
-                    <div className="text-center py-3">
-                      <p className="text-muted">No queries submitted yet</p>
-                      <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('askQuery')}>
-                        Ask a Question
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+        <div className="col-md-3 mb-3">
+          <div className="card bg-success text-white">
+            <div className="card-body">
+              <h5 className="card-title">My Claims</h5>
+              <h2 className="card-text">{claims.length}</h2>
+              <p><i className="bi bi-wallet2"></i> {approvedClaims} Approved</p>
             </div>
           </div>
         </div>
-
-        <div className="card">
-          <div className="card-header bg-primary text-white">
-            <h5 className="card-title mb-0">Quick Actions</h5>
+        <div className="col-md-3 mb-3">
+          <div className="card bg-warning text-white">
+            <div className="card-body">
+              <h5 className="card-title">Pending Queries</h5>
+              <h2 className="card-text">{pendingQueries}</h2>
+              <p><i className="bi bi-question-circle"></i> Waiting for response</p>
+            </div>
           </div>
-          <div className="card-body">
-            <div className="d-grid gap-2 d-md-flex">
-              <button className="btn btn-primary me-md-2" onClick={() => setActiveTab('newClaim')}>
-                <i className="bi bi-plus-circle me-2"></i> Submit New Claim
-              </button>
-              <button className="btn btn-outline-primary me-md-2" onClick={() => setActiveTab('askQuery')}>
-                <i className="bi bi-question-circle me-2"></i> Ask a Question
-              </button>
-              <button className="btn btn-outline-secondary me-md-2" onClick={() => setActiveTab('policies')}>
-                <i className="bi bi-file-text me-2"></i> View Policies
-              </button>
-              <button className="btn btn-outline-info" onClick={() => setActiveTab('support')}>
-                <i className="bi bi-headset me-2"></i> Get Support
-              </button>
+        </div>
+        <div className="col-md-3 mb-3">
+          <div className="card bg-info text-white">
+            <div className="card-body">
+              <h5 className="card-title">Agent Availability</h5>
+              <h2 className="card-text">Online</h2>
+              <p><i className="bi bi-person-check"></i> Support available</p>
             </div>
           </div>
         </div>
       </div>
-    );
-  };
+
+      <div className="row">
+        <div className="col-md-6 mb-4">
+          <div className="card">
+            <div className="card-header bg-primary text-white">
+              <h5 className="card-title mb-0">Recent Claims Activity</h5>
+            </div>
+            <div className="card-body">
+              <div className="list-group">
+                {claims.slice(0, 5).map(claim => (
+                  <div key={claim.id} className="list-group-item">
+                    <div className="d-flex w-100 justify-content-between">
+                      <h6 className="mb-1">{claim.type} Claim #{claim.id}</h6>
+                      <small>{claim.submittedDate}</small>
+                    </div>
+                    <p className="mb-1">{claim.details}</p>
+                    <div className="d-flex justify-content-between align-items-center">
+                      <span className="fw-bold">{claim.amount}</span>
+                      <span className={`badge ${claim.status === 'Approved' ? 'bg-success' : claim.status === 'In Review' ? 'bg-warning' : 'bg-danger'}`}>
+                        {claim.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {claims.length === 0 && (
+                  <div className="text-center py-3">
+                    <p className="text-muted">No claims submitted yet</p>
+                    <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('newClaim')}>
+                      Submit Your First Claim
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="col-md-6 mb-4">
+          <div className="card">
+            <div className="card-header bg-primary text-white">
+              <h5 className="card-title mb-0">Recent Queries</h5>
+            </div>
+            <div className="card-body">
+              <div className="list-group">
+                {queries.slice(0, 5).map(query => {
+                  const isAnswered = query.response && query.response.trim() !== "";
+                  return (
+                    <div key={query.id} className="list-group-item">
+                      <div className="d-flex w-100 justify-content-between">
+                        <h6 className="mb-1">{query.queryText}</h6>
+                        <span className={`badge ${isAnswered ? 'bg-success' : 'bg-warning'}`}>
+                          {isAnswered ? 'answered' : 'pending'}
+                        </span>
+                      </div>
+                      <p className="mb-1 text-truncate">{query.response || "Waiting for agent response..."}</p>
+                      <small className="text-muted">
+                        Created: {query.createdAt ? new Date(query.createdAt).toLocaleString() : "-"}
+                      </small>
+                    </div>
+                  );
+                })}
+                {queries.length === 0 && (
+                  <div className="text-center py-3">
+                    <p className="text-muted">No queries submitted yet</p>
+                    <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('askQuery')}>
+                      Ask a Question
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="card-header bg-primary text-white">
+          <h5 className="card-title mb-0">Quick Actions</h5>
+        </div>
+        <div className="card-body">
+          <div className="d-grid gap-2 d-md-flex">
+            <button className="btn btn-primary me-md-2" onClick={() => setActiveTab('newClaim')}>
+              <i className="bi bi-plus-circle me-2"></i> Submit New Claim
+            </button>
+            <button className="btn btn-outline-primary me-md-2" onClick={() => setActiveTab('askQuery')}>
+              <i className="bi bi-question-circle me-2"></i> Ask a Question
+            </button>
+            <button className="btn btn-outline-secondary me-md-2" onClick={() => setActiveTab('policies')}>
+              <i className="bi bi-file-text me-2"></i> View Policies
+            </button>
+            <button className="btn btn-outline-info" onClick={() => setActiveTab('support')}>
+              <i className="bi bi-headset me-2"></i> Get Support
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const renderPolicies = () => {
   return (
@@ -898,31 +902,30 @@ const renderMyQueries = () => {
                 </tr>
               </thead>
               <tbody>
-                {queries.map((query) => (
-                  <tr key={query.id}>
-                    <td><strong>#{query.id}</strong></td>
-                    <td>{query.queryText}</td>
-                    <td>{query.response || <span className="text-muted">No response yet</span>}</td>
-                    <td>{query.createdAt ? new Date(query.createdAt).toLocaleString() : "-"}</td>
-                    <td>
-                      <span
-                        className={`badge ${
-                          query.status === "answered" ? "bg-success" : "bg-warning"
-                        }`}
-                      >
-                        {query.status}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => setActiveTab("queryDetails")}
-                      >
-                        <i className="bi bi-eye me-1"></i> View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {queries.map((query) => {
+                  const isAnswered = query.response && query.response.trim() !== "";
+                  return (
+                    <tr key={query.id}>
+                      <td><strong>#{query.id}</strong></td>
+                      <td>{query.queryText}</td>
+                      <td>{query.response || <span className="text-muted">No response yet</span>}</td>
+                      <td>{query.createdAt ? new Date(query.createdAt).toLocaleString() : "-"}</td>
+                      <td>
+                        <span className={`badge ${isAnswered ? "bg-success" : "bg-warning"}`}>
+                          {isAnswered ? "answered" : query.status}
+                        </span>
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => setActiveTab("queryDetails")}
+                        >
+                          <i className="bi bi-eye me-1"></i> View Details
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
                 {queries.length === 0 && (
                   <tr>
                     <td colSpan="6" className="text-center py-4">
@@ -946,10 +949,11 @@ const renderMyQueries = () => {
   );
 };
 
-
 const renderQueryDetails = () => {
   // For demo purposes, showing the first query
   const query = queries[0] || {};
+
+  const isAnswered = query.response && query.response.trim() !== "";
 
   return (
     <div className="p-4">
@@ -966,12 +970,8 @@ const renderQueryDetails = () => {
       <div className="card mb-4">
         <div className="card-header d-flex justify-content-between align-items-center">
           <h5 className="card-title mb-0">Query #{query.id}</h5>
-          <span
-            className={`badge ${
-              query.status === "answered" ? "bg-success" : "bg-warning"
-            }`}
-          >
-            {query.status}
+          <span className={`badge ${isAnswered ? "bg-success" : "bg-warning"}`}>
+            {isAnswered ? "answered" : query.status}
           </span>
         </div>
         <div className="card-body">

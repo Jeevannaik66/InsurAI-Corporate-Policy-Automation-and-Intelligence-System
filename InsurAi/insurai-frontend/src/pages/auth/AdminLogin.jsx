@@ -80,18 +80,25 @@ export default function AdminLogin() {
             AD
           </div>
           <h3 className="fw-bold text-dark">Admin Login</h3>
-          <p className="text-muted mb-0">Enter your credentials to access the dashboard</p>
+          <p className="text-muted mb-0">
+            Enter your credentials to access the dashboard
+          </p>
         </div>
 
         {/* Error Alert */}
         {error && <div className="alert alert-danger text-center">{error}</div>}
 
         {/* Login Form */}
-        <form onSubmit={handleLogin}>
+        <form onSubmit={handleLogin} autoComplete="on">
           <div className="mb-3">
-            <label className="form-label fw-semibold">Email</label>
+            <label className="form-label fw-semibold" htmlFor="admin-email">
+              Email
+            </label>
             <input
               type="email"
+              id="admin-email"
+              name="username"
+              autoComplete="username"
               className="form-control shadow-sm"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -102,9 +109,14 @@ export default function AdminLogin() {
           </div>
 
           <div className="mb-4">
-            <label className="form-label fw-semibold">Password</label>
+            <label className="form-label fw-semibold" htmlFor="admin-password">
+              Password
+            </label>
             <input
               type="password"
+              id="admin-password"
+              name="password"
+              autoComplete="current-password"
               className="form-control shadow-sm"
               value={password}
               onChange={(e) => setPassword(e.target.value)}

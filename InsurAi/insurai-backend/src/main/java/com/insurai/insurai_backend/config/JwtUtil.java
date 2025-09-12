@@ -41,6 +41,31 @@ public class JwtUtil {
                 .getSubject();
     }
 
+    // ------------------- Added for Agent JWT filter -------------------
+    public String extractUsername(String token) {
+        return extractEmail(token);
+    }
+
+    public boolean validateToken(String token, String email) {
+        try {
+            String tokenEmail = extractEmail(token);
+            return (tokenEmail.equals(email) && !isTokenExpired(token));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isTokenExpired(String token) {
+        Date expiration = Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+        return expiration.before(new Date());
+    }
+    // -------------------------------------------------------------------
+
     // Extract role from token
     public String extractRole(String token) {
         return Jwts.parserBuilder()

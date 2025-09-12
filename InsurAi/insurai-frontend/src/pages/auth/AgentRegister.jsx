@@ -6,10 +6,23 @@ export default function AgentRegister({ onBack }) {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
+  const validateEmail = (email) => {
+    // Strict email regex: domain must start with a letter
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z]{2,})+$/;
+    return re.test(email);
+  };
+
   const handleRegisterAgent = async (e) => {
     e.preventDefault();
+
+    // Validate email only
+    if (!validateEmail(newAgent.email)) {
+      setError("⚠️ Please enter a valid email address (e.g., user@example.com).");
+      setSuccess("");
+      return;
+    }
+
     try {
-      // ✅ use same key as HrRegister (token)
       const token = localStorage.getItem("token");
       if (!token) {
         setError("⚠️ Please login as Admin first.");
@@ -22,7 +35,7 @@ export default function AgentRegister({ onBack }) {
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`, // ✅ attach token
+            Authorization: `Bearer ${token}`,
           },
         }
       );

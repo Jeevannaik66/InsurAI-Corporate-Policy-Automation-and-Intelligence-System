@@ -6,12 +6,26 @@ import axios from "axios";
 export default function EmployeeLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errorEmail, setErrorEmail] = useState("");
+  const [errorPassword, setErrorPassword] = useState("");
   const navigate = useNavigate();
+
+  const validateEmail = (email) => {
+    const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z]{2,})+$/;
+    return re.test(email);
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError("");
+
+    // Reset previous errors
+    setErrorEmail("");
+    setErrorPassword("");
+
+    if (!validateEmail(email)) {
+      setErrorEmail("⚠️ Please enter a valid email address (e.g., user@example.com).");
+      return;
+    }
 
     try {
       const res = await axios.post("http://localhost:8080/auth/login", {
@@ -32,20 +46,29 @@ export default function EmployeeLogin() {
         localStorage.setItem("role", "employee");
         localStorage.setItem("name", "");
       } else {
-        throw new Error("Invalid login response: no token string found");
+        throw new Error("Invalid login response: no token found");
       }
 
-      // ✅ Store token as string only
       localStorage.setItem("token", token);
-      console.log("[Login] Stored token:", token);
-
       navigate("/employee/dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
-      if (err.response && err.response.status === 401) {
-        setError("Invalid email or password.");
+
+      if (err.response) {
+        const status = err.response.status;
+
+        if (status === 404) {
+          // Unregistered email
+          setErrorEmail("⚠️ User not found. Please check your email or register.");
+        } else if (status === 401) {
+          // Incorrect password
+          setErrorPassword("⚠️ Incorrect password. Please try again.");
+        } else {
+          // Generic fallback
+          setErrorPassword("⚠️ Login failed. Please try again later.");
+        }
       } else {
-        setError("Login failed. Please try again later.");
+        setErrorPassword("⚠️ Login failed. Please try again later.");
       }
     }
   };
@@ -95,8 +118,6 @@ export default function EmployeeLogin() {
           <p className="text-muted mb-0">Login to your InsurAI account</p>
         </div>
 
-        {error && <div className="alert alert-danger text-center">{error}</div>}
-
         <form onSubmit={handleLogin}>
           <div className="mb-3">
             <label className="form-label fw-semibold">
@@ -104,13 +125,14 @@ export default function EmployeeLogin() {
             </label>
             <input
               type="email"
-              className="form-control shadow-sm"
+              className={`form-control shadow-sm ${errorEmail ? "is-invalid" : ""}`}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               placeholder="Enter your email"
               style={{ borderRadius: "10px" }}
             />
+            {errorEmail && <div className="invalid-feedback">{errorEmail}</div>}
           </div>
 
           <div className="mb-4">
@@ -119,13 +141,14 @@ export default function EmployeeLogin() {
             </label>
             <input
               type="password"
-              className="form-control shadow-sm"
+              className={`form-control shadow-sm ${errorPassword ? "is-invalid" : ""}`}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               placeholder="Enter your password"
               style={{ borderRadius: "10px" }}
             />
+            {errorPassword && <div className="invalid-feedback">{errorPassword}</div>}
           </div>
 
           <button

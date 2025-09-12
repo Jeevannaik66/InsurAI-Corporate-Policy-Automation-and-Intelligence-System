@@ -14,45 +14,49 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class SecurityConfig {
 
     private final EmployeeJwtAuthenticationFilter employeeJwtAuthenticationFilter;
+    private final AgentJwtAuthenticationFilter agentJwtAuthenticationFilter;
 
-    public SecurityConfig(EmployeeJwtAuthenticationFilter employeeJwtAuthenticationFilter) {
+    public SecurityConfig(EmployeeJwtAuthenticationFilter employeeJwtAuthenticationFilter,
+                          AgentJwtAuthenticationFilter agentJwtAuthenticationFilter) {
         this.employeeJwtAuthenticationFilter = employeeJwtAuthenticationFilter;
+        this.agentJwtAuthenticationFilter = agentJwtAuthenticationFilter;
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable()) // Disable CSRF for APIs
-            .cors(cors -> {}) // Enable CORS, configured below
+            .csrf(csrf -> csrf.disable())
+            .cors(cors -> {})
             .authorizeHttpRequests(auth -> auth
-    // Public endpoints
-    .requestMatchers(
-        "/auth/**",
-        "/admin/**",
-        "/admin/policies",
-        "/agent/**",
-        "/employee/login",
-        "/employee/register",
-        "/hr/login",
-        "/agent/availability/**",
-        "/agent/queries/pending/**",   // <-- newly added endpoint
-       "/agent/queries/respond/**",
-        "/employees/**",
-        "/hr/**"
-    ).permitAll()
-    // Employee endpoints require ROLE_EMPLOYEE
-    .requestMatchers("/employee/**").hasRole("EMPLOYEE")
-    // Everything else authenticated
-    .anyRequest().authenticated()
-)
-
+                // Public endpoints for everything except respond
+                .requestMatchers(
+                    "/auth/**",
+                    "/admin/**",
+                    "/admin/policies",
+                    "/agent/**",
+                    "/employee/login",
+                    "/employee/register",
+                    "/employee/policies",
+                    "/hr/login",
+                    "/agent/availability/**",
+                    "/agent/queries/pending/**",
+                    "/employees/**",
+                    "/employee/queries",
+                    "/hr/**"
+                ).permitAll()
+                // Only /agent/queries/respond/** requires ROLE_AGENT
+                .requestMatchers("/agent/queries/respond/**").hasRole("AGENT")
+                // Employee endpoints require ROLE_EMPLOYEE
+                .requestMatchers("/employee/**").hasRole("EMPLOYEE")
+                // Everything else authenticated
+                .anyRequest().authenticated()
+            )
             .httpBasic(httpBasic -> httpBasic.disable())
             .formLogin(formLogin -> formLogin.disable());
 
-        // -----------------------------
-        // Add Employee JWT filter ONLY for /employee/** endpoints
-        // -----------------------------
+        // Add JWT filters
         http.addFilterBefore(employeeJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(agentJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -62,16 +66,14 @@ public class SecurityConfig {
         return authConfig.getAuthenticationManager();
     }
 
-    // -----------------------------
     // Global CORS configuration
-    // -----------------------------
     @Bean
     public WebMvcConfigurer corsConfigurer() {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("http://localhost:5173")
+                        .allowedOrigins("http://localhost:5173", "http://localhost:8080")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(true);
