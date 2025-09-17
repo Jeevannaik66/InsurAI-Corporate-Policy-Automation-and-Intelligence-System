@@ -8,54 +8,53 @@ export default function HRDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("home");
 
-  // ✅ Dummy data for Claim Management
+  // Dummy data for Claim Management
   const [pendingClaims, setPendingClaims] = useState([
     { id: 1, employee: "John Doe", type: "Dental", amount: "$250", date: "2023-10-15", status: "Pending" },
     { id: 2, employee: "Jane Smith", type: "Medical", amount: "$1200", date: "2023-10-10", status: "Pending" },
   ]);
 
-  // ✅ Dummy data for Fraud Alerts
+  // Dummy data for Fraud Alerts
   const [fraudAlerts, setFraudAlerts] = useState([
     { id: 1, type: "Duplicate Claim", employee: "John Doe", date: "2023-10-15", status: "Pending", priority: "High" },
     { id: 2, type: "Unusual Activity", employee: "Jane Smith", date: "2023-10-12", status: "Pending", priority: "Medium" },
   ]);
 
-// ✅ Employees from backend
-const [employees, setEmployees] = useState([]);
-const [searchName, setSearchName] = useState("");
-const [policyFilter, setPolicyFilter] = useState("");
+  // Employees from backend
+  const [employees, setEmployees] = useState([]);
+  const [searchName, setSearchName] = useState("");
+  const [policyFilter, setPolicyFilter] = useState("");
 
-// ✅ Modal state
-const [selectedEmployee, setSelectedEmployee] = useState(null);
-const [showModal, setShowModal] = useState(false);
+  // Modal state
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [showModal, setShowModal] = useState(false);
 
-useEffect(() => {
-  fetch("http://localhost:8080/auth/employees")
-    .then(res => res.json())
-    .then(data => setEmployees(data))
-    .catch(err => console.error("Error fetching employees:", err));
-}, []);
+  useEffect(() => {
+    fetch("http://localhost:8080/auth/employees")
+      .then(res => res.json())
+      .then(data => setEmployees(data))
+      .catch(err => console.error("Error fetching employees:", err));
+  }, []);
 
-const filteredEmployees = employees.filter(emp => {
-  const matchesName = emp.name.toLowerCase().includes(searchName.toLowerCase());
-  const matchesPolicy = policyFilter === "" || emp.role === policyFilter;
-  return matchesName && matchesPolicy;
-});
+  const filteredEmployees = employees.filter(emp => {
+    const matchesName = emp.name.toLowerCase().includes(searchName.toLowerCase());
+    const matchesPolicy = policyFilter === "" || emp.role === policyFilter;
+    return matchesName && matchesPolicy;
+  });
 
-const handleView = (employee) => {
-  setSelectedEmployee(employee);
-  setShowModal(true);
-};
+  const handleView = (employee) => {
+    setSelectedEmployee(employee);
+    setShowModal(true);
+  };
 
-const handleCloseModal = () => {
-  setShowModal(false);
-  setSelectedEmployee(null);
-};
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedEmployee(null);
+  };
 
-const handleEdit = (employee) => {
-  alert(`Edit feature coming soon for: ${employee.name}`);
-};
-
+  const handleEdit = (employee) => {
+    alert(`Edit feature coming soon for: ${employee.name}`);
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -89,30 +88,49 @@ const handleEdit = (employee) => {
     alert("Fraud alert resolved");
   };
 
-const [policies, setPolicies] = useState([]);
+  // Policies state
+  const [policies, setPolicies] = useState([]);
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
 
-useEffect(() => {
-  const fetchPolicies = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:8080/employee/policies", {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-        },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setPolicies(data);
-      } else {
-        console.error("Failed to fetch policies");
+
+  useEffect(() => {
+    const fetchPolicies = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch("http://localhost:8080/employee/policies", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const formattedPolicies = data.map(policy => ({
+            id: policy.id,
+            policyName: policy.policyName,
+            policyType: policy.policyType,
+            providerName: policy.providerName,
+            coverageAmount: policy.coverageAmount,
+            monthlyPremium: policy.monthlyPremium,
+            renewalDate: policy.renewalDate,
+            policyStatus: policy.policyStatus,
+            policyDescription: policy.policyDescription,
+            contractUrl: policy.contractUrl,
+            termsUrl: policy.termsUrl,
+            claimFormUrl: policy.claimFormUrl,
+            annexureUrl: policy.annexureUrl,
+          }));
+          setPolicies(formattedPolicies);
+        } else {
+          console.error("Failed to fetch policies");
+        }
+      } catch (err) {
+        console.error("Error:", err);
       }
-    } catch (err) {
-      console.error("Error:", err);
-    }
-  };
+    };
 
-  fetchPolicies();
-}, []);
+    fetchPolicies();
+  }, []);
+
 
 
   // Render content based on active tab
@@ -323,7 +341,7 @@ useEffect(() => {
           </div>
         );
 
-        case "viewPolicy":
+case "viewPolicy":
   return (
     <div>
       <h4 className="mb-4">Available Policies</h4>
@@ -346,6 +364,7 @@ useEffect(() => {
                     <th>Renewal Date</th>
                     <th>Status</th>
                     <th style={{ minWidth: "250px" }}>Description</th>
+                    <th>Documents</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -380,6 +399,50 @@ useEffect(() => {
                           {policy.policyDescription}
                         </div>
                       </td>
+                      <td>
+                        <div className="d-flex flex-column gap-1">
+                          {policy.contractUrl && (
+                            <a
+                              href={policy.contractUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-outline-primary btn-sm"
+                            >
+                              Contract
+                            </a>
+                          )}
+                          {policy.termsUrl && (
+                            <a
+                              href={policy.termsUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-outline-primary btn-sm"
+                            >
+                              Terms
+                            </a>
+                          )}
+                          {policy.claimFormUrl && (
+                            <a
+                              href={policy.claimFormUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-outline-primary btn-sm"
+                            >
+                              Claim Form
+                            </a>
+                          )}
+                          {policy.annexureUrl && (
+                            <a
+                              href={policy.annexureUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-outline-primary btn-sm"
+                            >
+                              Annexure
+                            </a>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -392,6 +455,7 @@ useEffect(() => {
       </div>
     </div>
   );
+
 
 
 case "employees":
@@ -443,6 +507,7 @@ case "employees":
             <table className="table table-striped">
               <thead>
                 <tr>
+                  <th>Employee ID</th>
                   <th>Name</th>
                   <th>Email</th>
                   <th>Role</th>
@@ -454,6 +519,7 @@ case "employees":
                 {filteredEmployees.length > 0 ? (
                   filteredEmployees.map(employee => (
                     <tr key={employee.id}>
+                      <td>{employee.employeeId}</td> {/* ✅ Added Employee ID */}
                       <td>{employee.name}</td>
                       <td>{employee.email}</td>
                       <td>
@@ -482,7 +548,7 @@ case "employees":
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="5" className="text-center">No employees found</td>
+                    <td colSpan="6" className="text-center">No employees found</td>
                   </tr>
                 )}
               </tbody>
@@ -512,6 +578,7 @@ case "employees":
             ></button>
           </div>
           <div className="modal-body">
+            <p><strong>Employee ID:</strong> {selectedEmployee.employeeId}</p> {/* ✅ Added Employee ID */}
             <p><strong>Name:</strong> {selectedEmployee.name}</p>
             <p><strong>Email:</strong> {selectedEmployee.email}</p>
             <p><strong>Role:</strong> {selectedEmployee.role}</p>
@@ -532,9 +599,9 @@ case "employees":
     </div>
   </>
 )}
-
     </div>
   );
+
 
 
       

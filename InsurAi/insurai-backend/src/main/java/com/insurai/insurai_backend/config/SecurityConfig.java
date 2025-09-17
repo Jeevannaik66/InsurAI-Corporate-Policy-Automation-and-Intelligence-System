@@ -33,6 +33,7 @@ public class SecurityConfig {
                     "/auth/**",
                     "/admin/**",
                     "/admin/policies",
+                    "/admin/policies/save",
                     "/agent/**",
                     "/employee/login",
                     "/employee/register",
@@ -45,7 +46,7 @@ public class SecurityConfig {
                     "/hr/**"
                 ).permitAll()
                 // Only /agent/queries/respond/** requires ROLE_AGENT
-                .requestMatchers("/agent/queries/respond/**").hasRole("AGENT")
+                .requestMatchers("/agent/queries/respond/**","/agent/queries/all/**").hasRole("AGENT")
                 // Employee endpoints require ROLE_EMPLOYEE
                 .requestMatchers("/employee/**").hasRole("EMPLOYEE")
                 // Everything else authenticated

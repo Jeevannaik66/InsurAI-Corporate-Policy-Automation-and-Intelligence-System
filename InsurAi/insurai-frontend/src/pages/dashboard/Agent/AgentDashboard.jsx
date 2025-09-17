@@ -22,11 +22,11 @@ export default function AgentDashboard() {
   const [agentId, setAgentId] = useState(null);
   const [agentName, setAgentName] = useState("");
 
-  // -------------------- Get agent info, availability, and pending queries --------------------
+  // -------------------- Get agent info, availability, and queries --------------------
   useEffect(() => {
     const storedAgentId = localStorage.getItem("agentId");
     const storedAgentName = localStorage.getItem("agentName");
-    const token = localStorage.getItem("token"); // retrieve token
+    const token = localStorage.getItem("token");
 
     if (!token) {
       alert("No token found, please login again");
@@ -39,11 +39,9 @@ export default function AgentDashboard() {
       setAgentId(id);
       setAgentName(storedAgentName);
 
-      const axiosConfig = {
-        headers: { Authorization: `Bearer ${token}` }
-      };
+      const axiosConfig = { headers: { Authorization: `Bearer ${token}` } };
 
-      // Fetch current availability
+      // Fetch availability
       axios.get(`http://localhost:8080/agent/${id}/availability`, axiosConfig)
         .then(res => {
           if (res.data && typeof res.data.available === "boolean") {
@@ -52,22 +50,62 @@ export default function AgentDashboard() {
         })
         .catch(err => console.error("Failed to fetch availability", err));
 
-      // Fetch pending employee queries assigned to this agent
-      axios.get(`http://localhost:8080/agent/queries/pending/${id}`, axiosConfig)
-        .then(res => {
-          if (res.data) {
-            const formattedQueries = res.data.map(q => ({
-              id: q.id,
-              employee: q.employee.name,
-              query: q.queryText,
-              date: new Date(q.createdAt).toLocaleDateString(),
-              status: q.status === "pending" ? "Pending" : "Resolved",
-              response: q.response || ""
-            }));
-            setEmployeeQueries(formattedQueries);
-          }
+      // -------------------- Fetch all employees once --------------------
+      let employeeMap = {};
+      axios.get("http://localhost:8080/auth/employees", axiosConfig)
+        .then(empRes => {
+          empRes.data.forEach(emp => {
+            employeeMap[emp.id] = emp.name;
+          });
+
+          // -------------------- Fetch pending queries --------------------
+          axios.get(`http://localhost:8080/agent/queries/pending/${id}`, axiosConfig)
+            .then(res => {
+              if (res.data) {
+                const pendingWithNames = res.data.map(q => ({
+                  id: q.id,
+                  employeeId: q.employeeId,
+                  query: q.queryText,
+                  createdAt: q.createdAt,
+                  status: "Pending",
+                  response: q.response || "",
+                  agentId: q.agentId,
+                  employee: q.employee ? q.employee.name : employeeMap[q.employeeId] || `Employee ${q.employeeId}`,
+                  allowEdit: true  // ready for edit if needed in the future
+                }));
+                setEmployeeQueries(prev => [...prev.filter(q => q.status !== "Pending"), ...pendingWithNames]);
+              }
+            })
+            .catch(err => console.error("Failed to fetch pending queries", err));
+
+          // -------------------- Fetch resolved queries --------------------
+          axios.get(`http://localhost:8080/agent/queries/all/${id}`, axiosConfig)
+            .then(res => {
+              if (res.data) {
+                const resolvedWithNames = res.data
+                  .filter(q => q.status === "resolved")
+                  .map(q => ({
+                    id: q.id,
+                    employeeId: q.employeeId,
+                    query: q.queryText,
+                    createdAt: q.createdAt,
+                    updatedAt: q.updatedAt,
+                    status: "Resolved",
+                    response: q.response || "",
+                    agentId: q.agentId,
+                    employee: employeeMap[q.employeeId] || `Employee ${q.employeeId}`,
+                    allowEdit: false  // default: cannot edit after resolved
+                  }));
+                setEmployeeQueries(prev => [
+                  ...prev.filter(q => q.status !== "Resolved"),
+                  ...resolvedWithNames
+                ]);
+              }
+            })
+            .catch(err => console.error("Failed to fetch resolved queries", err));
+
         })
-        .catch(err => console.error("Failed to fetch employee queries", err));
+        .catch(err => console.error("Failed to fetch employees", err));
 
     } else {
       navigate("/agent/login");
@@ -141,56 +179,50 @@ export default function AgentDashboard() {
   };
 
   // -------------------- Respond to a query --------------------
-  const respondToQuery = async (id, responseText) => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) return alert("No token found, please login again");
+const respondToQuery = async (id, responseText, isUpdate = false) => {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return alert("No token found, please login again");
 
-      const query = employeeQueries.find(q => q.id === id);
-      if (!query) return alert("Query not found");
+    const query = employeeQueries.find(q => q.id === id);
+    if (!query) return alert("Query not found");
 
-      // --- DEBUG LOG ---
-      console.log("Sending PUT request to respond to query:", id);
-      console.log("Token being sent:", token);
-      // -----------------
+    await axios.put(
+      `http://localhost:8080/agent/queries/respond/${id}`,
+      { response: responseText },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
 
-      const res = await axios({
-        method: "put",
-        url: `http://localhost:8080/agent/queries/respond/${id}`,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
-        data: {
-          response: responseText
-        }
-      });
+    setEmployeeQueries(prev =>
+      prev.map(q =>
+        q.id === id
+          ? {
+              ...q,
+              response: responseText,
+              status: isUpdate ? q.status : "Resolved", // Keep status if updating
+              allowEdit: isUpdate ? true : true // Keep editable flag for updates
+            }
+          : q
+      )
+    );
 
-      console.log("Response received from backend:", res.data);
+    alert(isUpdate ? "Response updated successfully!" : "Response sent successfully!");
+  } catch (error) {
+    console.error("Failed to send/update response:", error.response?.data || error.message);
+    alert("Failed to send/update response");
+  }
+};
 
-      // Update UI
-      setEmployeeQueries(prev =>
-        prev.map(q =>
-          q.id === id ? { ...q, status: "Resolved", response: responseText } : q
-        )
-      );
-
-      alert("Response sent successfully!");
-    } catch (error) {
-      // Print full error for debugging
-      console.error("Failed to send response:", error.response?.data || error.message);
-      alert("Failed to send response");
-    }
-  };
 
   // -------------------- Handle response input changes --------------------
   const handleResponseChange = (id, value) => {
-    setEmployeeQueries((queries) =>
-      queries.map((query) =>
-        query.id === id ? { ...query, response: value } : query
-      )
+    setEmployeeQueries(prev =>
+      prev.map(q => q.id === id ? { ...q, response: value } : q)
     );
   };
+
+
+
 
 
 
@@ -355,7 +387,7 @@ case "queries":
         <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
           <h5 className="mb-0">All Employee Queries</h5>
           <span className="badge bg-light text-dark">
-            {employeeQueries.filter(q => q.status !== 'Resolved').length} Pending
+            {employeeQueries.filter(q => q.status !== "Resolved").length} Pending
           </span>
         </div>
 
@@ -372,80 +404,112 @@ case "queries":
               </tr>
             </thead>
             <tbody>
-              {employeeQueries.filter(q =>
-                filter === "All" ? true : q.status === filter
-              ).map(query => (
-                <tr key={query.id}>
-                  <td>{query.employee}</td>
-                  <td>{query.query}</td>
-                  <td>{new Date(query.date).toLocaleString()}</td>
-                  <td>
-                    <span className={`badge ${
-                      query.status === 'Pending' ? 'bg-warning' :
-                      query.status === 'Resolved' ? 'bg-success' : 'bg-info'
-                    }`}>
-                      {query.status}
-                    </span>
-                  </td>
-                  <td>
-                    {query.status !== 'Resolved' ? (
+              {employeeQueries
+                .filter(q => (filter === "All" ? true : q.status === filter))
+                .map(query => (
+                  <tr key={query.id}>
+                    <td>{query.employee || `Employee ${query.employeeId}`}</td>
+                    <td>{query.query}</td>
+                    <td>{query.createdAt ? new Date(query.createdAt).toLocaleString() : "Invalid Date"}</td>
+                    <td>
+                      <span
+                        className={`badge ${
+                          query.status === "Pending"
+                            ? "bg-warning"
+                            : query.status === "Resolved"
+                            ? "bg-success"
+                            : "bg-info"
+                        }`}
+                      >
+                        {query.status}
+                      </span>
+                    </td>
+                    <td>
                       <input
                         type="text"
                         className="form-control form-control-sm"
                         placeholder="Type your response"
                         value={query.response || ""}
-                        onChange={(e) => handleResponseChange(query.id, e.target.value)}
+                        onChange={e => handleResponseChange(query.id, e.target.value)}
+                        disabled={query.status === "Resolved" && !query.isEditing} // Editable if editing
                       />
-                    ) : (
-                      query.response
-                    )}
-                  </td>
-                  <td>
-                    {query.status !== 'Resolved' && (
-                      <>
+                    </td>
+                    <td>
+                      {/* Pending queries */}
+                      {query.status === "Pending" && (
+                        <>
+                          <button
+                            className="btn btn-sm btn-outline-primary me-1"
+                            onClick={() => {
+                              if (!query.response || query.response.trim() === "") {
+                                alert("Please type a response before submitting");
+                                return;
+                              }
+                              respondToQuery(query.id, query.response);
+                            }}
+                          >
+                            <i className="bi bi-chat"></i> Respond
+                          </button>
+                          <button
+                            className="btn btn-sm btn-outline-success"
+                            onClick={async () => {
+                              try {
+                                await axios.put(
+                                  `http://localhost:8080/agent/queries/respond/${query.id}`,
+                                  { response: query.response || "Resolved" },
+                                  { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+                                );
+                                setEmployeeQueries(prev =>
+                                  prev.map(q =>
+                                    q.id === query.id
+                                      ? { ...q, status: "Resolved", isEditing: false }
+                                      : q
+                                  )
+                                );
+                                alert("Query marked as resolved");
+                              } catch (err) {
+                                console.error("Failed to resolve query:", err);
+                                alert("Failed to resolve query.");
+                              }
+                            }}
+                          >
+                            <i className="bi bi-check"></i> Resolve
+                          </button>
+                        </>
+                      )}
+
+                      {/* Resolved queries */}
+                      {query.status === "Resolved" && (
                         <button
-                          className="btn btn-sm btn-outline-primary me-1"
+                          className={`btn btn-sm ${query.isEditing ? "btn-success" : "btn-outline-primary"}`}
                           onClick={() => {
-                            if (!query.response || query.response.trim() === "") {
-                              alert("Please type a response before submitting");
-                              return;
-                            }
-                            respondToQuery(query.id, query.response);
-                          }}
-                        >
-                          <i className="bi bi-chat"></i> Respond
-                        </button>
-
-                        <button
-                          className="btn btn-sm btn-outline-success"
-                          onClick={async () => {
-                            try {
-                              await axios.put(`http://localhost:8080/agent/queries/respond/${query.id}`, {
-                                response: query.response || "Resolved"
-                              });
-
+                            if (query.isEditing) {
+                              // Update response
+                              respondToQuery(query.id, query.response, true);
                               setEmployeeQueries(prev =>
                                 prev.map(q =>
-                                  q.id === query.id ? { ...q, status: "Resolved" } : q
+                                  q.id === query.id ? { ...q, isEditing: false } : q
                                 )
                               );
-                              alert("Query marked as resolved");
-                            } catch (err) {
-                              console.error("Failed to resolve query:", err);
-                              alert("Failed to resolve query.");
+                            } else {
+                              // Enable edit mode
+                              setEmployeeQueries(prev =>
+                                prev.map(q =>
+                                  q.id === query.id ? { ...q, isEditing: true } : q
+                                )
+                              );
                             }
                           }}
                         >
-                          <i className="bi bi-check"></i> Resolve
+                          <i className={`bi ${query.isEditing ? "bi-check-lg" : "bi-pencil"}`}></i>{" "}
+                          {query.isEditing ? "Update" : "Edit"}
                         </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {employeeQueries.filter(q =>
-                filter === "All" ? true : q.status === filter
-              ).length === 0 && (
+                      )}
+                    </td>
+                  </tr>
+                ))}
+
+              {employeeQueries.filter(q => (filter === "All" ? true : q.status === filter)).length === 0 && (
                 <tr>
                   <td colSpan="6" className="text-center py-3">
                     <span className="text-muted">No queries to display</span>
@@ -458,7 +522,6 @@ case "queries":
       </div>
     </div>
   );
-
 
 
       

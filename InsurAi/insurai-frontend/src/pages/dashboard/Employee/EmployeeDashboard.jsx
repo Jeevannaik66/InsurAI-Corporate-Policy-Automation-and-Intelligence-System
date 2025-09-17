@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+import jsPDF from "jspdf";
 
 export default function EmployeeDashboard() {
   const navigate = useNavigate();
@@ -27,9 +28,12 @@ export default function EmployeeDashboard() {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState("");
 
+  // Modal state
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
+
   // ------------------ Token check and fetch data ------------------
   useEffect(() => {
-    const token = localStorage.getItem("token"); // JWT token
+    const token = localStorage.getItem("token"); 
     const storedName = localStorage.getItem("name");
 
     if (!token || token.trim() === "") {
@@ -43,10 +47,27 @@ export default function EmployeeDashboard() {
     fetchAgents(token);
     fetchEmployeeQueries(token);
 
-    // Optional: auto-refresh queries every 10-15 seconds
     const interval = setInterval(() => fetchEmployeeQueries(token), 15000);
     return () => clearInterval(interval);
   }, [navigate]);
+
+  // ------------------ Convert raw S3 URL to public Supabase URL ------------------
+  const formatPublicUrl = (url) => {
+    if (!url) return null;
+    if (url.includes("/object/public/")) return url;
+
+    try {
+      const urlObj = new URL(url);
+      const pathParts = urlObj.pathname.split("/").filter(Boolean);
+      const bucketIndex = pathParts.indexOf("s3") + 1;
+      const bucket = pathParts[bucketIndex];
+      const filePath = pathParts.slice(bucketIndex + 1).join("/");
+      const projectDomain = urlObj.hostname.replace(".storage.", ".");
+      return `https://${projectDomain}/storage/v1/object/public/${bucket}/${filePath}`;
+    } catch {
+      return url;
+    }
+  };
 
   // ------------------ Fetch employee policies ------------------
   const fetchEmployeeData = async (token) => {
@@ -63,7 +84,11 @@ export default function EmployeeDashboard() {
         monthlyPremium: policy.monthlyPremium || 0,
         renewalDate: policy.renewalDate,
         status: policy.policyStatus,
-        benefits: policy.policyDescription ? [policy.policyDescription] : []
+        benefits: policy.policyDescription ? [policy.policyDescription] : [],
+        contractUrl: formatPublicUrl(policy.contractUrl),
+        termsUrl: formatPublicUrl(policy.termsUrl),
+        claimFormUrl: formatPublicUrl(policy.claimFormUrl),
+        annexureUrl: formatPublicUrl(policy.annexureUrl),
       }));
 
       setPolicies(formattedPolicies);
@@ -89,7 +114,7 @@ export default function EmployeeDashboard() {
   const fetchEmployeeQueries = async (token) => {
     try {
       const response = await axios.get("http://localhost:8080/employee/queries", {
-        headers: { Authorization: `Bearer ${token}` } // ✅ important fix
+        headers: { Authorization: `Bearer ${token}` }
       });
       setQueries(response.data);
     } catch (error) {
@@ -121,11 +146,6 @@ export default function EmployeeDashboard() {
     showNotificationAlert("Claim submitted successfully! It will be processed shortly.");
     setNewClaim({ type: "", amount: "", description: "", date: new Date().toISOString().split("T")[0], documents: [] });
     setActiveTab("claims");
-  };
-
-  // ------------------ Query Input Change ------------------
-  const handleQueryInputChange = (field, value) => {
-    setNewQuery({ ...newQuery, [field]: value });
   };
 
   // ------------------ Query Submit ------------------
@@ -169,7 +189,7 @@ export default function EmployeeDashboard() {
       );
 
       const savedQuery = response.data;
-      setQueries([savedQuery, ...queries]); // ✅ update queries state to show new query
+      setQueries([savedQuery, ...queries]); 
       showNotificationAlert("Query submitted successfully! An agent will respond shortly.");
 
       setNewQuery({ queryText: "" });
@@ -200,18 +220,17 @@ export default function EmployeeDashboard() {
       });
     }
   };
+const handleQueryInputChange = (field, value) => {
+  setNewQuery({ ...newQuery, [field]: value });
+};
 
-
-
-  // Updated PDF download function using jsPDF
+  // ------------------ PDF download function ------------------
 const downloadPolicy = (policy) => {
   const doc = new jsPDF();
 
-  // Header
   doc.setFontSize(18);
   doc.text(policy.name, 20, 20);
 
-  // Policy Details
   doc.setFontSize(12);
   doc.text(`Provider: ${policy.provider}`, 20, 35);
   doc.text(`Coverage: ${policy.coverage}`, 20, 45);
@@ -227,13 +246,16 @@ const downloadPolicy = (policy) => {
     doc.text(`- ${benefit}`, 25, 100 + index * 10);
   });
 
+  // ✅ Removed URLs section — only details are saved in PDF
+
   doc.save(`${policy.name}.pdf`);
 };
 
-  const viewPolicyDetails = (policy) => {
-    alert(`Policy Details:\n\nName: ${policy.name}\nProvider: ${policy.provider}\nCoverage: ${policy.coverage}\nPremium: $${policy.monthlyPremium}/month\nRenewal: ${policy.renewalDate}\nStatus: ${policy.status}`);
-  };
 
+  // ------------------ Policy modal ------------------
+  const viewPolicyDetails = (policy) => {
+    setSelectedPolicy(policy);
+  };
    
 
   // Fetch all agent availabilities from backend
@@ -430,11 +452,11 @@ const renderPolicies = () => {
             style={{
               flexBasis:
                 policies.length === 1
-                  ? "100%" // full width if only 1 policy
+                  ? "100%"
                   : policies.length === 2
-                  ? "48%" // two policies side by side
-                  : "30%", // 3+ policies
-              minWidth: "250px", // ensures responsiveness
+                  ? "48%"
+                  : "30%",
+              minWidth: "250px",
             }}
           >
             <div className="card h-100 shadow-sm border rounded-3">
@@ -499,10 +521,10 @@ const renderPolicies = () => {
                     onClick={() => viewPolicyDetails(policy)}
                   >
                     View Details
-                  </button> 
-                    <button
+                  </button>
+                  <button
                     className="btn btn-sm btn-primary flex-fill"
-                    onClick={() => downloadPolicy(policy)}
+                    onClick={() => downloadPolicy(policy)} // only details
                   >
                     Download Policy
                   </button>
@@ -512,9 +534,98 @@ const renderPolicies = () => {
           </div>
         ))}
       </div>
+
+{/* Policy Modal */}
+{selectedPolicy && (
+  <div className="modal show d-block" tabIndex="-1">
+    <div className="modal-dialog modal-lg modal-dialog-centered">
+      <div className="modal-content">
+        <div className="modal-header">
+          <h5 className="modal-title">{selectedPolicy.name}</h5>
+          <button
+            type="button"
+            className="btn-close"
+            onClick={() => setSelectedPolicy(null)}
+          ></button>
+        </div>
+        <div className="modal-body">
+          <p><strong>Provider:</strong> {selectedPolicy.provider}</p>
+          <p><strong>Coverage:</strong> {selectedPolicy.coverage}</p>
+          <p><strong>Premium:</strong> ${selectedPolicy.monthlyPremium}/month</p>
+          <p><strong>Renewal Date:</strong> {selectedPolicy.renewalDate}</p>
+          <p><strong>Status:</strong> {selectedPolicy.status}</p>
+
+          <h6 className="mt-3">Covered Benefits:</h6>
+          <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+            {selectedPolicy.benefits.join("\n")}
+          </p>
+
+          <h6 className="mt-3">Documents:</h6>
+          <div className="d-flex flex-wrap gap-2">
+            {selectedPolicy.contractUrl && (
+              <a
+                href={selectedPolicy.contractUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-outline-primary btn-sm"
+              >
+                Download Contract
+              </a>
+            )}
+            {selectedPolicy.termsUrl && (
+              <a
+                href={selectedPolicy.termsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-outline-primary btn-sm"
+              >
+                Download Terms
+              </a>
+            )}
+            {selectedPolicy.claimFormUrl && (
+              <a
+                href={selectedPolicy.claimFormUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-outline-primary btn-sm"
+              >
+                Download Claim Form
+              </a>
+            )}
+            {selectedPolicy.annexureUrl && (
+              <a
+                href={selectedPolicy.annexureUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-outline-primary btn-sm"
+              >
+                Download Annexure
+              </a>
+            )}
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button
+            className="btn btn-secondary"
+            onClick={() => setSelectedPolicy(null)}
+          >
+            Close
+          </button>
+          <button
+            className="btn btn-primary"
+            onClick={() => downloadPolicy(selectedPolicy)} // only details
+          >
+            Download Policy Details
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+      )}
     </div>
   );
 };
+
 
   const renderClaims = () => {
     return (

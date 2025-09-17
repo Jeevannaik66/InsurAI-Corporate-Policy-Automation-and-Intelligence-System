@@ -90,6 +90,12 @@ public class EmployeeQueryService {
     public List<EmployeeQuery> getAllPendingQueries() {
         return queryRepository.findByStatus("pending");
     }
+ public List<EmployeeQuery> getAllQueriesForAgent(Long agentId) {
+    return queryRepository.findByAgentId(agentId);
+}
+
+
+
 
     // -------------------- New methods to match controller --------------------
     public Optional<EmployeeQuery> findById(Long queryId) {

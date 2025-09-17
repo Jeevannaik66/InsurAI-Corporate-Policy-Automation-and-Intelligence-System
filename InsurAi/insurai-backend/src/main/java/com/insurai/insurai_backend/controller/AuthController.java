@@ -39,8 +39,14 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Email already exists");
         }
 
+        // Check if employeeId already exists
+        if (employeeRepository.findByEmployeeId(request.getEmployeeId()).isPresent()) {
+            return ResponseEntity.badRequest().body("Employee ID already exists");
+        }
+
         // Create new Employee
         Employee emp = new Employee();
+        emp.setEmployeeId(request.getEmployeeId()); // 👈 new field
         emp.setName(request.getName());
         emp.setEmail(request.getEmail());
         emp.setPassword(passwordEncoder.encode(request.getPassword())); // encode password
@@ -53,32 +59,37 @@ public class AuthController {
     }
 
     // ================= Employee Login =================
-@PostMapping("/login")
-public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-    // Check if employee exists
-    var empOptional = employeeRepository.findByEmail(request.getEmail());
-    if (empOptional.isEmpty()) {
-        return ResponseEntity.status(404).body("User not found"); // <-- return 404 instead of exception
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        Employee emp = null;
+
+        // Allow login by either employeeId OR email
+        if (request.getEmployeeId() != null && !request.getEmployeeId().isBlank()) {
+            emp = employeeRepository.findByEmployeeId(request.getEmployeeId()).orElse(null);
+        } else if (request.getEmail() != null && !request.getEmail().isBlank()) {
+            emp = employeeRepository.findByEmail(request.getEmail()).orElse(null);
+        }
+
+        if (emp == null) {
+            return ResponseEntity.status(404).body("User not found");
+        }
+
+        // Check password
+        if (!passwordEncoder.matches(request.getPassword(), emp.getPassword())) {
+            return ResponseEntity.status(401).body("Incorrect password");
+        }
+
+        // Generate JWT
+        String token = jwtUtil.generateToken(emp.getEmail(), emp.getRole().name());
+
+        // Return token, role, and name
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "role", emp.getRole().name(),
+                "name", emp.getName(),
+                "employeeId", emp.getEmployeeId()
+        ));
     }
-
-    Employee emp = empOptional.get();
-
-    // Check password
-    if (!passwordEncoder.matches(request.getPassword(), emp.getPassword())) {
-        return ResponseEntity.status(401).body("Incorrect password"); // <-- 401 for wrong password
-    }
-
-    // Generate JWT
-    String token = jwtUtil.generateToken(emp.getEmail(), emp.getRole().name());
-
-    // Return token, role, and name
-    return ResponseEntity.ok(Map.of(
-            "token", token,
-            "role", emp.getRole().name(),
-            "name", emp.getName()
-    ));
-}
-
 
     // ================= Get All Employees =================
     @GetMapping("/employees")

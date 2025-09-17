@@ -8,4 +8,7 @@ import com.insurai.insurai_backend.model.Employee;
 
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
     Optional<Employee> findByEmail(String email);
+
+    // 🔹 New method for employeeId-based login
+    Optional<Employee> findByEmployeeId(String employeeId);
 }

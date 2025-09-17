@@ -10,12 +10,12 @@ import com.insurai.insurai_backend.model.Policy;
 @Repository
 public interface PolicyRepository extends JpaRepository<Policy, Long> {
 
-    // Optional: Find all active policies
+    // Find all active policies
     List<Policy> findByPolicyStatus(String policyStatus);
 
-    // Optional: Find policies by type
+    // Find policies by type
     List<Policy> findByPolicyType(String policyType);
 
-    // Optional: Find policies by provider
+    // Find policies by provider
     List<Policy> findByProviderName(String providerName);
 }

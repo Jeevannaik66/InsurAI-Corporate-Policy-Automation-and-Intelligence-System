@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.insurai.insurai_backend.config.JwtUtil;
 import com.insurai.insurai_backend.model.Agent;
 import com.insurai.insurai_backend.model.AgentAvailability;
 import com.insurai.insurai_backend.model.EmployeeQuery;
@@ -23,7 +24,6 @@ import com.insurai.insurai_backend.service.AgentService;
 import com.insurai.insurai_backend.service.EmployeeQueryService;
 
 import lombok.RequiredArgsConstructor;
-import com.insurai.insurai_backend.config.JwtUtil;
 
 @RequiredArgsConstructor
 @RestController
@@ -238,6 +238,30 @@ public ResponseEntity<?> respondToQuery(
         System.out.println("[DEBUG] Exception: " + e.getMessage());
         e.printStackTrace();
         return ResponseEntity.status(500).body("Error updating query: " + e.getMessage());
+    }
+}
+
+// -------------------- Get all queries (pending + resolved) for a specific agent --------------------
+@GetMapping("/queries/all/{agentId}")
+public ResponseEntity<?> getAllQueriesForAgent(@PathVariable Long agentId) {
+    try {
+        List<EmployeeQuery> allQueries = queryService.getAllQueriesForAgent(agentId);
+
+        // Convert to DTOs to avoid exposing sensitive info
+        List<EmployeeQueryDTO> dtoList = allQueries.stream().map(q -> new EmployeeQueryDTO(
+                q.getId(),
+                q.getQueryText(),
+                q.getResponse(),
+                q.getStatus(),
+                q.getCreatedAt(),
+                q.getUpdatedAt(),
+                q.getEmployee() != null ? q.getEmployee().getId() : null,
+                q.getAgent() != null ? q.getAgent().getId() : null
+        )).toList();
+
+        return ResponseEntity.ok(dtoList);
+    } catch (Exception e) {
+        return ResponseEntity.status(500).body("Error fetching queries: " + e.getMessage());
     }
 }
 

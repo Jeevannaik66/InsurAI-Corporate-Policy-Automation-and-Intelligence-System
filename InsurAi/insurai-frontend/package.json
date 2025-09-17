@@ -15,9 +15,11 @@
     "bootstrap-icons": "^1.13.1",
     "jspdf": "^3.0.2",
     "lucide-react": "^0.542.0",
+    "pdfjs-dist": "^5.4.149",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.1",
+    "react-pdf": "^10.1.0",
     "react-router-dom": "^6.30.1"
   },
   "devDependencies": {

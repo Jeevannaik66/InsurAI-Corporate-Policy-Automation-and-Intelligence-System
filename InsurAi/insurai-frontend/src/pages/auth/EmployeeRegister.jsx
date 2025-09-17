@@ -3,6 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 export default function EmployeeRegister() {
+  const [employeeId, setEmployeeId] = useState(""); // NEW
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -15,7 +16,7 @@ export default function EmployeeRegister() {
       const res = await fetch("http://localhost:8080/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ employeeId, name, email, password }), // include employeeId
       });
 
       const text = await res.text();
@@ -90,6 +91,21 @@ export default function EmployeeRegister() {
 
         {/* Register Form */}
         <form onSubmit={handleRegister}>
+          <div className="mb-3">
+            <label className="form-label fw-semibold">
+              <i className="bi bi-card-text me-2 text-primary"></i> Employee ID
+            </label>
+            <input
+              type="text"
+              className="form-control shadow-sm"
+              value={employeeId}
+              onChange={(e) => setEmployeeId(e.target.value)}
+              required
+              placeholder="Enter your corporate employee ID"
+              style={{ borderRadius: "10px" }}
+            />
+          </div>
+
           <div className="mb-3">
             <label className="form-label fw-semibold">
               <i className="bi bi-person me-2 text-primary"></i> Full Name

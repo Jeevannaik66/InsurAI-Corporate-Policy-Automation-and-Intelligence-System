@@ -24,6 +24,10 @@ public class Employee {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // 👇 New field for corporate employee ID
+    @Column(unique = true, nullable = false)
+    private String employeeId;
+
     private String name;
 
     @Column(unique = true, nullable = false)

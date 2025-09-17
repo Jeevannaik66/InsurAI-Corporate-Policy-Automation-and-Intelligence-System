@@ -41,12 +41,29 @@ public class Policy {
     @Column(columnDefinition = "TEXT")
     private String policyDescription;
 
+    // === New fields for uploaded documents (Supabase URLs) ===
+    private String contractUrl;   // Main Insurance Contract / Policy Document
+    private String termsUrl;      // Terms & Conditions
+    private String claimFormUrl;  // Claim Form template
+    private String annexureUrl;   // Annexures / Riders
+
     // Constructors
     public Policy() {}
 
-    public Policy(String policyName, String policyType, String providerName,
-                  Double coverageAmount, Double monthlyPremium, LocalDate renewalDate,
-                  String policyStatus, String policyDescription) {
+    public Policy(
+            String policyName,
+            String policyType,
+            String providerName,
+            Double coverageAmount,
+            Double monthlyPremium,
+            LocalDate renewalDate,
+            String policyStatus,
+            String policyDescription,
+            String contractUrl,
+            String termsUrl,
+            String claimFormUrl,
+            String annexureUrl
+    ) {
         this.policyName = policyName;
         this.policyType = policyType;
         this.providerName = providerName;
@@ -55,80 +72,51 @@ public class Policy {
         this.renewalDate = renewalDate;
         this.policyStatus = policyStatus;
         this.policyDescription = policyDescription;
+        this.contractUrl = contractUrl;
+        this.termsUrl = termsUrl;
+        this.claimFormUrl = claimFormUrl;
+        this.annexureUrl = annexureUrl;
     }
 
     // Getters and Setters
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getPolicyName() { return policyName; }
+    public void setPolicyName(String policyName) { this.policyName = policyName; }
 
-    public String getPolicyName() {
-        return policyName;
-    }
+    public String getPolicyType() { return policyType; }
+    public void setPolicyType(String policyType) { this.policyType = policyType; }
 
-    public void setPolicyName(String policyName) {
-        this.policyName = policyName;
-    }
+    public String getProviderName() { return providerName; }
+    public void setProviderName(String providerName) { this.providerName = providerName; }
 
-    public String getPolicyType() {
-        return policyType;
-    }
+    public Double getCoverageAmount() { return coverageAmount; }
+    public void setCoverageAmount(Double coverageAmount) { this.coverageAmount = coverageAmount; }
 
-    public void setPolicyType(String policyType) {
-        this.policyType = policyType;
-    }
+    public Double getMonthlyPremium() { return monthlyPremium; }
+    public void setMonthlyPremium(Double monthlyPremium) { this.monthlyPremium = monthlyPremium; }
 
-    public String getProviderName() {
-        return providerName;
-    }
+    public LocalDate getRenewalDate() { return renewalDate; }
+    public void setRenewalDate(LocalDate renewalDate) { this.renewalDate = renewalDate; }
 
-    public void setProviderName(String providerName) {
-        this.providerName = providerName;
-    }
+    public String getPolicyStatus() { return policyStatus; }
+    public void setPolicyStatus(String policyStatus) { this.policyStatus = policyStatus; }
 
-    public Double getCoverageAmount() {
-        return coverageAmount;
-    }
+    public String getPolicyDescription() { return policyDescription; }
+    public void setPolicyDescription(String policyDescription) { this.policyDescription = policyDescription; }
 
-    public void setCoverageAmount(Double coverageAmount) {
-        this.coverageAmount = coverageAmount;
-    }
+    public String getContractUrl() { return contractUrl; }
+    public void setContractUrl(String contractUrl) { this.contractUrl = contractUrl; }
 
-    public Double getMonthlyPremium() {
-        return monthlyPremium;
-    }
+    public String getTermsUrl() { return termsUrl; }
+    public void setTermsUrl(String termsUrl) { this.termsUrl = termsUrl; }
 
-    public void setMonthlyPremium(Double monthlyPremium) {
-        this.monthlyPremium = monthlyPremium;
-    }
+    public String getClaimFormUrl() { return claimFormUrl; }
+    public void setClaimFormUrl(String claimFormUrl) { this.claimFormUrl = claimFormUrl; }
 
-    public LocalDate getRenewalDate() {
-        return renewalDate;
-    }
-
-    public void setRenewalDate(LocalDate renewalDate) {
-        this.renewalDate = renewalDate;
-    }
-
-    public String getPolicyStatus() {
-        return policyStatus;
-    }
-
-    public void setPolicyStatus(String policyStatus) {
-        this.policyStatus = policyStatus;
-    }
-
-    public String getPolicyDescription() {
-        return policyDescription;
-    }
-
-    public void setPolicyDescription(String policyDescription) {
-        this.policyDescription = policyDescription;
-    }
+    public String getAnnexureUrl() { return annexureUrl; }
+    public void setAnnexureUrl(String annexureUrl) { this.annexureUrl = annexureUrl; }
 
     @Override
     public String toString() {
@@ -142,6 +130,10 @@ public class Policy {
                 ", renewalDate=" + renewalDate +
                 ", policyStatus='" + policyStatus + '\'' +
                 ", policyDescription='" + policyDescription + '\'' +
+                ", contractUrl='" + contractUrl + '\'' +
+                ", termsUrl='" + termsUrl + '\'' +
+                ", claimFormUrl='" + claimFormUrl + '\'' +
+                ", annexureUrl='" + annexureUrl + '\'' +
                 '}';
     }
 }

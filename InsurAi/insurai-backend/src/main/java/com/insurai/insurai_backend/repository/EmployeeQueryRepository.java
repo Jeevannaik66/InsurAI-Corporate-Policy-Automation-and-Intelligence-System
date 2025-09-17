@@ -24,4 +24,5 @@ public interface EmployeeQueryRepository extends JpaRepository<EmployeeQuery, Lo
 
     // Get all queries with a specific status (e.g., pending) regardless of agent
     List<EmployeeQuery> findByStatus(String status);
+    
 }

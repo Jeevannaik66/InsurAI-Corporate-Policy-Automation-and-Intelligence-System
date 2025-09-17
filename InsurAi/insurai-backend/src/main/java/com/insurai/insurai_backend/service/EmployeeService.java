@@ -33,8 +33,9 @@ public class EmployeeService {
     }
 
     // -------------------- Generate simple token for Employee --------------------
-    public String generateEmployeeToken(String email) {
-        String tokenData = email + ":" + System.currentTimeMillis();
+    public String generateEmployeeToken(String identifier) {
+        // identifier can be email or employeeId
+        String tokenData = identifier + ":" + System.currentTimeMillis();
         return Base64.getEncoder().encodeToString(tokenData.getBytes(StandardCharsets.UTF_8));
     }
 
@@ -55,9 +56,14 @@ public class EmployeeService {
             byte[] decodedBytes = Base64.getDecoder().decode(token);
             String decoded = new String(decodedBytes, StandardCharsets.UTF_8);
 
-            boolean exists = employeeRepository.findByEmail(decoded.split(":")[0]).isPresent();
+            String identifier = decoded.split(":")[0];
+
+            // Try both email and employeeId lookup
+            boolean exists = employeeRepository.findByEmail(identifier).isPresent()
+                          || employeeRepository.findByEmployeeId(identifier).isPresent();
+
             if (!exists) {
-                System.out.println("[EmployeeService] Token email not found in database");
+                System.out.println("[EmployeeService] Token identifier not found in database");
             }
 
             return exists;

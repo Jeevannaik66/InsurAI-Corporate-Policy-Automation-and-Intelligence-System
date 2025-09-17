@@ -9,12 +9,13 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.insurai.insurai_backend.model.Policy;
 import com.insurai.insurai_backend.service.AdminService;
 import com.insurai.insurai_backend.service.PolicyService;
@@ -26,27 +27,62 @@ public class PolicyController {
 
     private final PolicyService policyService;
     private final AdminService adminService;
+    private final ObjectMapper objectMapper;
 
     @Autowired
-    public PolicyController(PolicyService policyService, AdminService adminService) {
+    public PolicyController(PolicyService policyService, AdminService adminService, ObjectMapper objectMapper) {
         this.policyService = policyService;
         this.adminService = adminService;
+        this.objectMapper = objectMapper;
     }
 
-    // -------------------- Create a new policy (Admin only) --------------------
+    // -------------------- Create or Update a policy with documents --------------------
     @PostMapping
-    public ResponseEntity<?> createPolicy(@RequestHeader(value = "Authorization", required = false) String authHeader,
-                                          @RequestBody Policy policy) {
-
+    public ResponseEntity<?> savePolicyWithDocuments(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestPart("policy") String policyJson, // receive JSON as string
+            @RequestPart(value = "contract", required = false) MultipartFile contract,
+            @RequestPart(value = "terms", required = false) MultipartFile terms,
+            @RequestPart(value = "claimForm", required = false) MultipartFile claimForm,
+            @RequestPart(value = "annexure", required = false) MultipartFile annexure
+    ) {
         if (!adminService.isAdmin(authHeader)) {
             return ResponseEntity.status(403).body("Access denied. Please login as Admin.");
         }
 
-        Policy createdPolicy = policyService.createPolicy(policy);
-        return ResponseEntity.ok(createdPolicy);
+        try {
+            // Deserialize JSON string into Policy object
+            Policy policy = objectMapper.readValue(policyJson, Policy.class);
+            Policy savedPolicy;
+
+            if (policy.getId() != null) {
+                // Update existing policy
+                savedPolicy = policyService.updatePolicy(policy.getId(), policy);
+            } else {
+                // Create new policy
+                savedPolicy = policyService.createPolicy(policy);
+            }
+
+            // Upload documents if provided
+            if (contract != null || terms != null || claimForm != null || annexure != null) {
+                savedPolicy = policyService.uploadDocuments(
+                        savedPolicy.getId(),
+                        contract,
+                        terms,
+                        claimForm,
+                        annexure
+                );
+            }
+
+            return ResponseEntity.ok(savedPolicy);
+
+        } catch (Exception e) {
+            e.printStackTrace(); // log full exception for debugging
+            return ResponseEntity.status(500).body("Failed to save policy or upload documents: " + e.getMessage());
+        }
     }
 
-    // -------------------- Get all policies (Admin only) --------------------
+    // -------------------- Get all policies --------------------
     @GetMapping
     public ResponseEntity<?> getAllPolicies(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         if (!adminService.isAdmin(authHeader)) {
@@ -56,7 +92,7 @@ public class PolicyController {
         return ResponseEntity.ok(policies);
     }
 
-    // -------------------- Get active policies (Admin only) --------------------
+    // -------------------- Get active policies --------------------
     @GetMapping("/active")
     public ResponseEntity<?> getActivePolicies(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         if (!adminService.isAdmin(authHeader)) {
@@ -66,10 +102,12 @@ public class PolicyController {
         return ResponseEntity.ok(activePolicies);
     }
 
-    // -------------------- Get policy by ID (Admin only) --------------------
+    // -------------------- Get policy by ID --------------------
     @GetMapping("/{id}")
-    public ResponseEntity<?> getPolicyById(@RequestHeader(value = "Authorization", required = false) String authHeader,
-                                           @PathVariable Long id) {
+    public ResponseEntity<?> getPolicyById(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id
+    ) {
         if (!adminService.isAdmin(authHeader)) {
             return ResponseEntity.status(403).body("Access denied. Please login as Admin.");
         }
@@ -78,22 +116,12 @@ public class PolicyController {
         return ResponseEntity.ok(policy);
     }
 
-    // -------------------- Update policy (Admin only) --------------------
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updatePolicy(@RequestHeader(value = "Authorization", required = false) String authHeader,
-                                          @PathVariable Long id,
-                                          @RequestBody Policy updatedPolicy) {
-        if (!adminService.isAdmin(authHeader)) {
-            return ResponseEntity.status(403).body("Access denied. Please login as Admin.");
-        }
-        Policy policy = policyService.updatePolicy(id, updatedPolicy);
-        return ResponseEntity.ok(policy);
-    }
-
-    // -------------------- Delete policy (Admin only) --------------------
+    // -------------------- Delete policy --------------------
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deletePolicy(@RequestHeader(value = "Authorization", required = false) String authHeader,
-                                          @PathVariable Long id) {
+    public ResponseEntity<?> deletePolicy(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @PathVariable Long id
+    ) {
         if (!adminService.isAdmin(authHeader)) {
             return ResponseEntity.status(403).body("Access denied. Please login as Admin.");
         }

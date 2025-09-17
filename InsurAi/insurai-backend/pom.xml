@@ -106,6 +106,18 @@
     <artifactId>jjwt</artifactId>
     <version>0.9.1</version>
 </dependency>
+<dependency>
+    <groupId>software.amazon.awssdk</groupId>
+    <artifactId>s3</artifactId>
+    <version>2.20.38</version>
+</dependency>
+<dependency>
+    <groupId>com.konghq</groupId>
+    <artifactId>unirest-java</artifactId>
+    <version>3.13.6</version>
+</dependency>
+
+
 
 	</dependencies>
 
