@@ -18,7 +18,8 @@ public class PolicyService {
     private final SupabaseStorageService supabaseStorageService;
 
     @Autowired
-    public PolicyService(PolicyRepository policyRepository, SupabaseStorageService supabaseStorageService) {
+    public PolicyService(PolicyRepository policyRepository,
+                         SupabaseStorageService supabaseStorageService) {
         this.policyRepository = policyRepository;
         this.supabaseStorageService = supabaseStorageService;
     }
@@ -43,20 +44,23 @@ public class PolicyService {
         return policyRepository.findByPolicyStatus("Active");
     }
 
-    // -------------------- Update a policy --------------------
-    public Policy updatePolicy(Long id, Policy updatedPolicy) {
-        return policyRepository.findById(id).map(policy -> {
-            policy.setPolicyName(updatedPolicy.getPolicyName());
-            policy.setPolicyType(updatedPolicy.getPolicyType());
-            policy.setProviderName(updatedPolicy.getProviderName());
-            policy.setCoverageAmount(updatedPolicy.getCoverageAmount());
-            policy.setMonthlyPremium(updatedPolicy.getMonthlyPremium());
-            policy.setRenewalDate(updatedPolicy.getRenewalDate());
-            policy.setPolicyStatus(updatedPolicy.getPolicyStatus());
-            policy.setPolicyDescription(updatedPolicy.getPolicyDescription());
-            return policyRepository.save(policy);
-        }).orElseThrow(() -> new RuntimeException("Policy not found with id " + id));
-    }
+// -------------------- Update a policy --------------------
+public Policy updatePolicy(Long id, Policy updatedPolicy) {
+    return policyRepository.findById(id).map(policy -> {
+        policy.setPolicyNumber(updatedPolicy.getPolicyNumber());  // <-- Add this
+        policy.setPolicyName(updatedPolicy.getPolicyName());
+        policy.setPolicyType(updatedPolicy.getPolicyType());
+        policy.setProviderName(updatedPolicy.getProviderName());
+        policy.setCoverageAmount(updatedPolicy.getCoverageAmount());
+        policy.setMonthlyPremium(updatedPolicy.getMonthlyPremium());
+        policy.setStartDate(updatedPolicy.getStartDate());        // <-- Add this
+        policy.setRenewalDate(updatedPolicy.getRenewalDate());
+        policy.setPolicyStatus(updatedPolicy.getPolicyStatus());
+        policy.setPolicyDescription(updatedPolicy.getPolicyDescription());
+        return policyRepository.save(policy);
+    }).orElseThrow(() -> new RuntimeException("Policy not found with id " + id));
+}
+
 
     // -------------------- Delete a policy --------------------
     public void deletePolicy(Long id) {

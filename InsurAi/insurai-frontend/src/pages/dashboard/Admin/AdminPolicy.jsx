@@ -4,11 +4,13 @@ import "bootstrap/dist/css/bootstrap.min.css";
 
 export default function AdminPolicy() {
   const [policyData, setPolicyData] = useState({
+    policyNumber: "",
     policyName: "",
     policyType: "",
     providerName: "",
     coverageAmount: "",
     monthlyPremium: "",
+    startDate: "",
     renewalDate: "",
     policyStatus: "Active",
     policyDescription: "",
@@ -40,22 +42,17 @@ export default function AdminPolicy() {
   // -------------------- Convert raw S3 URL to public Supabase URL --------------------
   const formatPublicUrl = (url) => {
     if (!url) return null;
-    // Check if URL already contains "/object/public/"
     if (url.includes("/object/public/")) return url;
-
-    // Example: convert raw S3 path to Supabase public URL
-    // Raw: https://<project>.storage.supabase.co/storage/v1/s3/<bucket>/<path>
-    // Public: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
     try {
       const urlObj = new URL(url);
-      const pathParts = urlObj.pathname.split("/").filter(Boolean); // remove empty
+      const pathParts = urlObj.pathname.split("/").filter(Boolean);
       const bucketIndex = pathParts.indexOf("s3") + 1;
       const bucket = pathParts[bucketIndex];
       const filePath = pathParts.slice(bucketIndex + 1).join("/");
       const projectDomain = urlObj.hostname.replace(".storage.", ".");
       return `https://${projectDomain}/storage/v1/object/public/${bucket}/${filePath}`;
     } catch {
-      return url; // fallback
+      return url;
     }
   };
 
@@ -63,8 +60,6 @@ export default function AdminPolicy() {
   const fetchPolicies = async () => {
     try {
       const response = await api.get("/admin/policies", { withCredentials: true });
-
-      // Convert any raw S3 URL to public Supabase URL
       const formattedPolicies = response.data.map((p) => ({
         ...p,
         contractUrl: formatPublicUrl(p.contractUrl),
@@ -72,7 +67,6 @@ export default function AdminPolicy() {
         claimFormUrl: formatPublicUrl(p.claimFormUrl),
         annexureUrl: formatPublicUrl(p.annexureUrl),
       }));
-
       setPolicies(formattedPolicies);
       setMessage("");
     } catch (error) {
@@ -103,17 +97,19 @@ export default function AdminPolicy() {
         withCredentials: true,
         headers: {
           "Content-Type": "multipart/form-data",
-          "Authorization": "Bearer dummy-token", // remove or replace in production
+          "Authorization": "Bearer dummy-token",
         },
       });
 
       setMessage("✅ Policy saved successfully!");
       setPolicyData({
+        policyNumber: "",
         policyName: "",
         policyType: "",
         providerName: "",
         coverageAmount: "",
         monthlyPremium: "",
+        startDate: "",
         renewalDate: "",
         policyStatus: "Active",
         policyDescription: "",
@@ -169,7 +165,18 @@ export default function AdminPolicy() {
           {message && <div className="alert alert-info">{message}</div>}
 
           <form onSubmit={handleSubmit}>
-            {/* Policy Fields */}
+            {/* New Fields */}
+            <div className="mb-3">
+              <label className="form-label">Policy Number</label>
+              <input type="text" className="form-control" name="policyNumber" value={policyData.policyNumber} onChange={handleChange} required />
+            </div>
+
+            <div className="mb-3">
+              <label className="form-label">Start Date</label>
+              <input type="date" className="form-control" name="startDate" value={policyData.startDate} onChange={handleChange} required />
+            </div>
+
+            {/* Existing Fields */}
             <div className="mb-3">
               <label className="form-label">Policy Name</label>
               <input type="text" className="form-control" name="policyName" value={policyData.policyName} onChange={handleChange} required />
@@ -232,11 +239,13 @@ export default function AdminPolicy() {
               <button type="button" className="btn btn-secondary" onClick={() => {
                 setEditingPolicyId(null);
                 setPolicyData({
+                  policyNumber: "",
                   policyName: "",
                   policyType: "",
                   providerName: "",
                   coverageAmount: "",
                   monthlyPremium: "",
+                  startDate: "",
                   renewalDate: "",
                   policyStatus: "Active",
                   policyDescription: "",
@@ -281,6 +290,8 @@ export default function AdminPolicy() {
                 <button type="button" className="btn-close" onClick={closeModal}></button>
               </div>
               <div className="modal-body overflow-auto" style={{ maxHeight: "70vh" }}>
+                <p><strong>Policy Number:</strong> {viewPolicy.policyNumber}</p>
+                <p><strong>Start Date:</strong> {viewPolicy.startDate}</p>
                 <p><strong>Type:</strong> {viewPolicy.policyType}</p>
                 <p><strong>Provider:</strong> {viewPolicy.providerName}</p>
                 <p><strong>Coverage:</strong> ${viewPolicy.coverageAmount}</p>
@@ -289,11 +300,15 @@ export default function AdminPolicy() {
                 <p><strong>Status:</strong> {viewPolicy.policyStatus}</p>
                 <p><strong>Description:</strong> {viewPolicy.policyDescription}</p>
 
-                {/* Document Links */}
+                                {/* Document Links */}
                 {["contractUrl", "termsUrl", "claimFormUrl", "annexureUrl"].map((urlKey) =>
                   viewPolicy[urlKey] ? (
                     <p key={urlKey}>
-                      <a href={viewPolicy[urlKey]} target="_blank" rel="noopener noreferrer">
+                      <a
+                        href={viewPolicy[urlKey]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         View {urlKey.replace("Url", "")}
                       </a>
                     </p>
@@ -301,7 +316,13 @@ export default function AdminPolicy() {
                 )}
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={closeModal}>Close</button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={closeModal}
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

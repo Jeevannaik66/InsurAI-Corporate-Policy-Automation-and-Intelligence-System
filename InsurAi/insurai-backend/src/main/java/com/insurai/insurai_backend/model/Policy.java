@@ -17,6 +17,9 @@ public class Policy {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
+    private String policyNumber; // Unique Policy ID
+
     @Column(nullable = false)
     private String policyName;
 
@@ -33,6 +36,9 @@ public class Policy {
     private Double monthlyPremium;
 
     @Column(nullable = false)
+    private LocalDate startDate; // Policy start date
+
+    @Column(nullable = false)
     private LocalDate renewalDate;
 
     @Column(nullable = false)
@@ -41,7 +47,7 @@ public class Policy {
     @Column(columnDefinition = "TEXT")
     private String policyDescription;
 
-    // === New fields for uploaded documents (Supabase URLs) ===
+    // === Uploaded document URLs ===
     private String contractUrl;   // Main Insurance Contract / Policy Document
     private String termsUrl;      // Terms & Conditions
     private String claimFormUrl;  // Claim Form template
@@ -51,11 +57,13 @@ public class Policy {
     public Policy() {}
 
     public Policy(
+            String policyNumber,
             String policyName,
             String policyType,
             String providerName,
             Double coverageAmount,
             Double monthlyPremium,
+            LocalDate startDate,
             LocalDate renewalDate,
             String policyStatus,
             String policyDescription,
@@ -64,11 +72,13 @@ public class Policy {
             String claimFormUrl,
             String annexureUrl
     ) {
+        this.policyNumber = policyNumber;
         this.policyName = policyName;
         this.policyType = policyType;
         this.providerName = providerName;
         this.coverageAmount = coverageAmount;
         this.monthlyPremium = monthlyPremium;
+        this.startDate = startDate;
         this.renewalDate = renewalDate;
         this.policyStatus = policyStatus;
         this.policyDescription = policyDescription;
@@ -81,6 +91,9 @@ public class Policy {
     // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getPolicyNumber() { return policyNumber; }
+    public void setPolicyNumber(String policyNumber) { this.policyNumber = policyNumber; }
 
     public String getPolicyName() { return policyName; }
     public void setPolicyName(String policyName) { this.policyName = policyName; }
@@ -96,6 +109,9 @@ public class Policy {
 
     public Double getMonthlyPremium() { return monthlyPremium; }
     public void setMonthlyPremium(Double monthlyPremium) { this.monthlyPremium = monthlyPremium; }
+
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
 
     public LocalDate getRenewalDate() { return renewalDate; }
     public void setRenewalDate(LocalDate renewalDate) { this.renewalDate = renewalDate; }
@@ -122,11 +138,13 @@ public class Policy {
     public String toString() {
         return "Policy{" +
                 "id=" + id +
+                ", policyNumber='" + policyNumber + '\'' +
                 ", policyName='" + policyName + '\'' +
                 ", policyType='" + policyType + '\'' +
                 ", providerName='" + providerName + '\'' +
                 ", coverageAmount=" + coverageAmount +
                 ", monthlyPremium=" + monthlyPremium +
+                ", startDate=" + startDate +
                 ", renewalDate=" + renewalDate +
                 ", policyStatus='" + policyStatus + '\'' +
                 ", policyDescription='" + policyDescription + '\'' +

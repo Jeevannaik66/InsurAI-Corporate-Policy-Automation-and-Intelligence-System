@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.insurai.insurai_backend.model.Policy;
 import com.insurai.insurai_backend.service.AdminService;
 import com.insurai.insurai_backend.service.PolicyService;
@@ -34,6 +36,10 @@ public class PolicyController {
         this.policyService = policyService;
         this.adminService = adminService;
         this.objectMapper = objectMapper;
+
+        // Register JavaTimeModule to properly handle LocalDate
+        this.objectMapper.registerModule(new JavaTimeModule());
+        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     }
 
     // -------------------- Create or Update a policy with documents --------------------
