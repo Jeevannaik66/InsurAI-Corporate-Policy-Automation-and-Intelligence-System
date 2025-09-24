@@ -18,7 +18,6 @@ export default function EmployeeLogin() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Reset previous errors
     setErrorEmail("");
     setErrorPassword("");
 
@@ -35,21 +34,16 @@ export default function EmployeeLogin() {
 
       const data = res.data;
 
-      // Store token and user info
-      let token;
-      if (data?.token && typeof data.token === "string") {
-        token = data.token;
-        localStorage.setItem("role", data.role?.toLowerCase() || "employee");
-        localStorage.setItem("name", data.name || "");
-      } else if (typeof data === "string") {
-        token = data;
-        localStorage.setItem("role", "employee");
-        localStorage.setItem("name", "");
-      } else {
+      if (!data || !data.token) {
         throw new Error("Invalid login response: no token found");
       }
 
-      localStorage.setItem("token", token);
+      // Store user info
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role?.toLowerCase() || "employee");
+      localStorage.setItem("name", data.name || "");
+      localStorage.setItem("employeeId", data.employeeId || ""); // ✅ store employeeId
+
       navigate("/employee/dashboard", { replace: true });
     } catch (err) {
       console.error("Login error:", err);
@@ -58,13 +52,10 @@ export default function EmployeeLogin() {
         const status = err.response.status;
 
         if (status === 404) {
-          // Unregistered email
           setErrorEmail("⚠️ User not found. Please check your email or register.");
         } else if (status === 401) {
-          // Incorrect password
           setErrorPassword("⚠️ Incorrect password. Please try again.");
         } else {
-          // Generic fallback
           setErrorPassword("⚠️ Login failed. Please try again later.");
         }
       } else {

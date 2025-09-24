@@ -15,20 +15,29 @@ public class SecurityConfig {
 
     private final EmployeeJwtAuthenticationFilter employeeJwtAuthenticationFilter;
     private final AgentJwtAuthenticationFilter agentJwtAuthenticationFilter;
+    private final HrJwtAuthenticationFilter hrJwtAuthenticationFilter; // Added
 
     public SecurityConfig(EmployeeJwtAuthenticationFilter employeeJwtAuthenticationFilter,
-                          AgentJwtAuthenticationFilter agentJwtAuthenticationFilter) {
+                          AgentJwtAuthenticationFilter agentJwtAuthenticationFilter,
+                          HrJwtAuthenticationFilter hrJwtAuthenticationFilter) { // Added
         this.employeeJwtAuthenticationFilter = employeeJwtAuthenticationFilter;
         this.agentJwtAuthenticationFilter = agentJwtAuthenticationFilter;
+        this.hrJwtAuthenticationFilter = hrJwtAuthenticationFilter; // Added
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
-            .cors(cors -> {})
+            .cors(cors -> {}) // Keep global CORS
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints for everything except respond
+                // Employee claim endpoints
+                .requestMatchers("/employee/claims/**").hasRole("EMPLOYEE")
+                .requestMatchers("/employee/queries/**").hasRole("EMPLOYEE")
+                .requestMatchers("/uploads/**").permitAll()
+                .requestMatchers("/hr/claims").hasAnyRole("HR", "ADMIN")
+
+                // Public endpoints
                 .requestMatchers(
                     "/auth/**",
                     "/admin/**",
@@ -42,22 +51,32 @@ public class SecurityConfig {
                     "/agent/availability/**",
                     "/agent/queries/pending/**",
                     "/employees/**",
-                    "/employee/queries",
                     "/hr/**"
                 ).permitAll()
-                // Only /agent/queries/respond/** requires ROLE_AGENT
-                .requestMatchers("/agent/queries/respond/**","/agent/queries/all/**").hasRole("AGENT")
-                // Employee endpoints require ROLE_EMPLOYEE
+
+                // Agent endpoints
+                .requestMatchers("/agent/queries/respond/**", "/agent/queries/all/**").hasRole("AGENT")
+
+                // Employee endpoints (other than claims/queries)
                 .requestMatchers("/employee/**").hasRole("EMPLOYEE")
-                // Everything else authenticated
+
+                // Claim endpoints for HR/Admin
+                .requestMatchers(
+                    "/claims/approve/**",
+                    "/claims/reject/**",
+                    "/claims/all"
+                ).hasAnyRole("HR", "ADMIN")
+
+                // Everything else requires authentication
                 .anyRequest().authenticated()
             )
             .httpBasic(httpBasic -> httpBasic.disable())
             .formLogin(formLogin -> formLogin.disable());
 
-        // Add JWT filters
+        // Add JWT filters in order
         http.addFilterBefore(employeeJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
         http.addFilterBefore(agentJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(hrJwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class); // Added
 
         return http.build();
     }

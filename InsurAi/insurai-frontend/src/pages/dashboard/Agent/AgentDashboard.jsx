@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
-import "../Employee/EmployeeDashboard.css";
+import "../Dashboard.css";
 import axios from "axios";
 
 export default function AgentDashboard() {
@@ -824,7 +824,7 @@ case "availability":
       <div className="dashboard-main">
         {/* Sidebar */}
         <aside className="dashboard-sidebar">
-          <nav className="nav flex-column">
+          <nav className="nav flex-column p-3">
             <a
               href="#"
               className={`nav-link ${activeTab === "home" ? "active" : ""}`}

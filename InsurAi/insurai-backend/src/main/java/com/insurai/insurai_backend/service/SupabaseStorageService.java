@@ -17,7 +17,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 public class SupabaseStorageService {
 
     @Value("${supabase.url}")
-    private String supabaseUrl; // e.g., https://tferrygoqazdohrykemv.storage.supabase.co/storage/v1/s3
+    private String supabaseUrl; //
 
     @Value("${supabase.accessKey}")
     private String accessKey;

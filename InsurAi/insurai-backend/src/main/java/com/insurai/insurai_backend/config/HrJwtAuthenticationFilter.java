@@ -15,11 +15,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Component
-public class EmployeeJwtAuthenticationFilter extends OncePerRequestFilter {
+public class HrJwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
 
-    public EmployeeJwtAuthenticationFilter(JwtUtil jwtUtil) {
+    public HrJwtAuthenticationFilter(JwtUtil jwtUtil) {
         this.jwtUtil = jwtUtil;
     }
 
@@ -36,10 +36,9 @@ public class EmployeeJwtAuthenticationFilter extends OncePerRequestFilter {
 
             try {
                 String email = jwtUtil.extractEmail(token);
-                String role = jwtUtil.extractRole(token); // e.g., "EMPLOYEE"
+                String role = jwtUtil.extractRole(token); // e.g., "HR"
 
                 if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    // **Important:** Add "ROLE_" prefix for Spring Security
                     SimpleGrantedAuthority authority = new SimpleGrantedAuthority("ROLE_" + role.toUpperCase());
 
                     UsernamePasswordAuthenticationToken authToken =
@@ -57,10 +56,9 @@ public class EmployeeJwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
- @Override
-protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
-    String path = request.getServletPath();
-    return !path.startsWith("/employee") && !path.startsWith("/claims");
-}
-
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getServletPath();
+        return !path.startsWith("/hr");
+    }
 }

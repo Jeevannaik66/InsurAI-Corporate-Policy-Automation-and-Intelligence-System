@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
-import "../Employee/EmployeeDashboard.css";
+import "../Dashboard.css";
 import AgentRegister from "../../auth/AgentRegister";
 import HrRegister from "../../auth/HRRegister";
 import AdminPolicy from "./AdminPolicy";
@@ -663,7 +663,7 @@ const handleRegisterAgent = async (agentData) => {
 <div className="dashboard-main">
   {/* Sidebar */}
   <aside className="dashboard-sidebar">
-    <nav className="nav flex-column">
+    <nav className="nav flex-column p-3">
       <a
         href="#"
         className={`nav-link ${activeTab === "home" ? "active" : ""}`}
@@ -696,14 +696,13 @@ const handleRegisterAgent = async (agentData) => {
         <i className="bi bi-person-plus me-2"></i> Register Agent
       </a>
 
-<a
-  href="#"
-  className={`nav-link ${activeTab === "createPolicy" ? "active" : ""}`}
-  onClick={(e) => { e.preventDefault(); setActiveTab("createPolicy"); }}
->
-  <i className="bi bi-file-medical me-2"></i> Create Policy
-</a>
-
+      <a
+        href="#"
+        className={`nav-link ${activeTab === "createPolicy" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("createPolicy"); }}
+      >
+        <i className="bi bi-file-medical me-2"></i> Create Policy
+      </a>
 
       <a
         href="#"
@@ -739,14 +738,14 @@ const handleRegisterAgent = async (agentData) => {
     </nav>
   </aside>
 
+  {/* Content Area */}
+  <main className="dashboard-content">
+    <div className="dashboard-content-wrapper p-4">
+      {renderContent()}
+    </div>
+  </main>
+</div>
 
-        {/* Content Area */}
-        <main className="dashboard-content">
-          <div className="dashboard-content-wrapper p-4">
-            {renderContent()}
-          </div>
-        </main>
-      </div>
     </div>
   );
 }

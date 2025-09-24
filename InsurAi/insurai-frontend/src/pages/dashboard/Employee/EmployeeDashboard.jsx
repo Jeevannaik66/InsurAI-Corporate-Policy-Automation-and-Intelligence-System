@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import EmployeeClaims from './EmployeeClaims'; // adjust the path based on your folder structure
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import jsPDF from "jspdf";
@@ -15,6 +16,7 @@ export default function EmployeeDashboard() {
   const [agentsAvailability, setAgentsAvailability] = useState([]);
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [loading, setLoading] = useState(false);
+const [employeeId, setEmployeeId] = useState(null);
 
   const [newClaim, setNewClaim] = useState({
     type: "",
@@ -69,13 +71,48 @@ export default function EmployeeDashboard() {
     }
   };
 
+ // ------------------ Fetch logged-in employee ------------------
+const fetchLoggedInEmployee = async (token) => {
+  try {
+    const response = await axios.get("http://localhost:8080/auth/employees", {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const storedEmail = localStorage.getItem("email"); // must save email at login
+    const employee = response.data.find(emp => emp.email === storedEmail);
+
+    if (!employee) {
+      console.error("Employee not found");
+      navigate("/employee/login");
+      return;
+    }
+
+    // ✅ Store the corporate employee ID for claims
+    setEmployeeId(employee.employeeId);       
+    setEmployeeName(employee.name || "Employee");
+
+    // Optional: store in localStorage for global access
+    localStorage.setItem("employeeId", employee.employeeId);
+    localStorage.setItem("name", employee.name || "Employee");
+
+    console.log("Logged-in employee:", {
+      employeeId: employee.employeeId,
+      name: employee.name
+    });
+  } catch (error) {
+    console.error("Error fetching employee:", error);
+    navigate("/employee/login");
+  }
+};
+
+
   // ------------------ Fetch employee policies ------------------
   const fetchEmployeeData = async (token) => {
     try {
       const response = await axios.get("http://localhost:8080/employee/policies", {
         headers: { Authorization: `Bearer ${token}` }
       });
-
+ 
       const formattedPolicies = response.data.map((policy) => ({
         id: policy.id,
         name: policy.policyName,
@@ -122,6 +159,7 @@ export default function EmployeeDashboard() {
       if (error.response?.status === 403) navigate("/employee/login");
     }
   };
+  
 
   // ------------------ Logout ------------------
   const handleLogout = () => {
@@ -627,221 +665,8 @@ const renderPolicies = () => {
 };
 
 
-  const renderClaims = () => {
-    return (
-      <div className="p-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h4>My Insurance Claims</h4>
-          <button className="btn btn-primary" onClick={() => setActiveTab('newClaim')}>
-            <i className="bi bi-plus-circle me-1"></i> Submit New Claim
-          </button>
-        </div>
-        
-        <div className="row mb-4">
-          <div className="col-md-4 text-center">
-            <div className="card">
-              <div className="card-body">
-                <h2 className="text-success">{claims.filter(c => c.status === 'Approved').length}</h2>
-                <p className="card-text">Approved</p>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-4 text-center">
-            <div className="card">
-              <div className="card-body">
-                <h2 className="text-warning">{claims.filter(c => c.status === 'In Review').length}</h2>
-                <p className="card-text">In Review</p>
-              </div>
-            </div>
-          </div>
-          <div className="col-md-4 text-center">
-            <div className="card">
-              <div className="card-body">
-                <h2 className="text-danger">{claims.filter(c => c.status === 'Rejected').length}</h2>
-                <p className="card-text">Rejected</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div className="card">
-          <div className="card-body">
-            <div className="table-responsive">
-              <table className="table table-striped">
-                <thead>
-                  <tr>
-                    <th>Claim ID</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Submitted</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {claims.map(claim => (
-                    <tr key={claim.id}>
-                      <td><strong>#{claim.id}</strong></td>
-                      <td>{claim.type}</td>
-                      <td>{claim.details}</td>
-                      <td><strong>{claim.amount}</strong></td>
-                      <td>{claim.submittedDate}</td>
-                      <td>
-                        <span className={`badge ${claim.status === 'Approved' ? 'bg-success' : claim.status === 'In Review' ? 'bg-warning' : 'bg-danger'}`}>
-                          {claim.status}
-                        </span>
-                      </td>
-                      <td>
-                        <button className="btn btn-sm btn-outline-primary me-1">View</button>
-                        {claim.status === 'In Review' && (
-                          <button className="btn btn-sm btn-outline-secondary">Edit</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {claims.length === 0 && (
-                    <tr>
-                      <td colSpan="7" className="text-center py-4">
-                        <i className="bi bi-wallet2 display-4 text-muted"></i>
-                        <p className="text-muted mt-2">No claims submitted yet</p>
-                        <button className="btn btn-primary btn-sm" onClick={() => setActiveTab('newClaim')}>
-                          Submit Your First Claim
-                        </button>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const renderNewClaim = () => {
-    return (
-      <div className="p-4">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h4>Submit New Claim</h4>
-          <button className="btn btn-secondary" onClick={() => setActiveTab('claims')}>
-            <i className="bi bi-arrow-left me-1"></i> Back to Claims
-          </button>
-        </div>
-        
-        <div className="card">
-          <div className="card-body">
-            <form onSubmit={handleClaimSubmit}>
-              <div className="row mb-3">
-                <div className="col-md-6">
-                  <label htmlFor="claimType" className="form-label">Claim Type *</label>
-                  <select 
-                    className="form-select" 
-                    id="claimType"
-                    value={newClaim.type}
-                    onChange={(e) => setNewClaim({...newClaim, type: e.target.value})}
-                    required
-                  >
-                    <option value="">Select Claim Type</option>
-                    <option value="Health">Health Insurance</option>
-                    <option value="Dental">Dental Insurance</option>
-                    <option value="Vision">Vision Insurance</option>
-                    <option value="Accident">Accident Insurance</option>
-                    <option value="Life">Life Insurance</option>
-                  </select>
-                </div>
-                
-                <div className="col-md-6">
-                  <label htmlFor="claimAmount" className="form-label">Claim Amount *</label>
-                  <div className="input-group">
-                    <span className="input-group-text">$</span>
-                    <input 
-                      type="number" 
-                      className="form-control" 
-                      id="claimAmount"
-                      value={newClaim.amount}
-                      onChange={(e) => setNewClaim({...newClaim, amount: e.target.value})}
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                      required
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mb-3">
-                <label htmlFor="claimDate" className="form-label">Incident/Service Date *</label>
-                <input 
-                  type="date" 
-                  className="form-control" 
-                  id="claimDate"
-                  value={newClaim.date}
-                  onChange={(e) => setNewClaim({...newClaim, date: e.target.value})}
-                  max={new Date().toISOString().split('T')[0]}
-                  required
-                />
-              </div>
-              
-              <div className="mb-3">
-                <label htmlFor="claimDescription" className="form-label">Description *</label>
-                <textarea 
-                  className="form-control" 
-                  id="claimDescription" 
-                  rows="4"
-                  value={newClaim.description}
-                  onChange={(e) => setNewClaim({...newClaim, description: e.target.value})}
-                  placeholder="Please provide detailed description of the incident/service..."
-                  required
-                ></textarea>
-              </div>
-              
-              <div className="mb-4">
-                <label htmlFor="claimDocuments" className="form-label">Supporting Documents</label>
-                <input 
-                  type="file" 
-                  className="form-control" 
-                  id="claimDocuments" 
-                  multiple
-                  accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  onChange={handleDocumentUpload}
-                />
-                <div className="form-text">
-                  Upload receipts, medical reports, or other supporting documents. Supported formats: PDF, JPG, PNG, DOC, DOCX (Max 5MB each)
-                </div>
-                
-                {newClaim.documents.length > 0 && (
-                  <div className="mt-3">
-                    <h6>Uploaded Files:</h6>
-                    <ul className="list-group">
-                      {newClaim.documents.map((file, index) => (
-                        <li key={index} className="list-group-item d-flex justify-content-between align-items-center">
-                          <span><i className="bi bi-file-earmark me-2"></i> {file.name}</span>
-                          <span className="badge bg-secondary rounded-pill">
-                            {Math.round(file.size / 1024)} KB
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-              
-              <div className="d-grid gap-2 d-md-flex justify-content-md-end">
-                <button type="submit" className="btn btn-success me-md-2">
-                  <i className="bi bi-check-circle me-1"></i> Submit Claim
-                </button>
-                <button type="button" className="btn btn-secondary" onClick={() => setActiveTab('claims')}>
-                  <i className="bi bi-x-circle me-1"></i> Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </div>
-    );
-  };
+ 
+  
 
 const renderAskQuery = () => {
   return (
@@ -1255,83 +1080,98 @@ const renderQueryDetails = () => {
         </div>
       </header>
 
-      {/* Main Layout */}
-      <div className="dashboard-main d-flex">
-        {/* Sidebar */}
-        <aside className="dashboard-sidebar bg-light" style={{width: '250px', minHeight: 'calc(100vh - 76px)'}}>
-          <nav className="nav flex-column p-3">
-            <a
-              href="#"
-              className={`nav-link ${activeTab === "home" ? "active" : ""}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab("home"); }}
-            >
-              <i className="bi bi-speedometer2 me-2"></i> Dashboard
-            </a>
+{/* Main Layout */}
+<div className="dashboard-main">
+  {/* Sidebar */}
+  <aside className="dashboard-sidebar">
+    <nav className="nav flex-column p-3">  {/* added padding */}
+      <a
+        href="#"
+        className={`nav-link mb-2 ${activeTab === "home" ? "active" : ""}`} // mb-2 = space between items
+        onClick={(e) => { e.preventDefault(); setActiveTab("home"); }}
+      >
+        <i className="bi bi-speedometer2 me-2"></i> Dashboard
+      </a>
 
-            <a
-              href="#"
-              className={`nav-link ${activeTab === "policies" ? "active" : ""}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab("policies"); }}
-            >
-              <i className="bi bi-file-text me-2"></i> My Policies
-            </a>
+      <a
+        href="#"
+        className={`nav-link mb-2 ${activeTab === "policies" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("policies"); }}
+      >
+        <i className="bi bi-file-text me-2"></i> My Policies
+      </a>
 
-            <a
-              href="#"
-              className={`nav-link ${activeTab === "claims" ? "active" : ""}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab("claims"); }}
-            >
-              <i className="bi bi-wallet2 me-2"></i> My Claims
-            </a>
+      <a
+        href="#"
+        className={`nav-link mb-2 ${activeTab === "claims" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("claims"); }}
+      >
+        <i className="bi bi-wallet2 me-2"></i> My Claims
+      </a>
 
-            <a
-              href="#"
-              className={`nav-link ${activeTab === "newClaim" ? "active" : ""}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab("newClaim"); }}
-            >
-              <i className="bi bi-plus-circle me-2"></i> Submit Claim
-            </a>
+      <a
+        href="#"
+        className={`nav-link mb-2 ${activeTab === "newClaim" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("newClaim"); }}
+      >
+        <i className="bi bi-plus-circle me-2"></i> Submit Claim
+      </a>
 
-            <a
-              href="#"
-              className={`nav-link ${activeTab === "askQuery" ? "active" : ""}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab("askQuery"); }}
-            >
-              <i className="bi bi-question-circle me-2"></i> Ask a Question
-            </a>
+      <a
+        href="#"
+        className={`nav-link mb-2 ${activeTab === "askQuery" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("askQuery"); }}
+      >
+        <i className="bi bi-question-circle me-2"></i> Ask a Question
+      </a>
 
-            <a
-              href="#"
-              className={`nav-link ${activeTab === "myQueries" ? "active" : ""}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab("myQueries"); }}
-            >
-              <i className="bi bi-chat-left-text me-2"></i> My Queries
-            </a>
+      <a
+        href="#"
+        className={`nav-link mb-2 ${activeTab === "myQueries" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("myQueries"); }}
+      >
+        <i className="bi bi-chat-left-text me-2"></i> My Queries
+      </a>
 
-            <a
-              href="#"
-              className={`nav-link ${activeTab === "support" ? "active" : ""}`}
-              onClick={(e) => { e.preventDefault(); setActiveTab("support"); }}
-            >
-              <i className="bi bi-headset me-2"></i> Support
-            </a>
-          </nav>
-        </aside>
+      <a
+        href="#"
+        className={`nav-link mb-2 ${activeTab === "support" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("support"); }}
+      >
+        <i className="bi bi-headset me-2"></i> Support
+      </a>
+    </nav>
+  </aside>
 
-        {/* Content Area */}
-        <main className="dashboard-content flex-grow-1 p-0">
-          <div className="dashboard-content-wrapper p-4">
-            {activeTab === 'home' && renderHome()}
-            {activeTab === 'policies' && renderPolicies()}
-            {activeTab === 'claims' && renderClaims()}
-            {activeTab === 'newClaim' && renderNewClaim()}
-            {activeTab === 'askQuery' && renderAskQuery()}
-            {activeTab === 'myQueries' && renderMyQueries()}
-            {activeTab === 'queryDetails' && renderQueryDetails()}
-            {activeTab === 'support' && renderSupport()}
-          </div>
-        </main>
-      </div>
+  {/* Content Area */}
+  <main className="dashboard-content">
+    <div className="dashboard-content-wrapper p-4">
+      {activeTab === "home" && renderHome()}
+      {activeTab === "policies" && renderPolicies()}
+      {(activeTab === "claims" || activeTab === "newClaim") && (
+  <EmployeeClaims
+    policies={policies}
+    activeTab={activeTab}
+    setActiveTab={setActiveTab}
+    claims={claims}
+    newClaim={newClaim}
+    setNewClaim={setNewClaim}
+    handleClaimSubmit={handleClaimSubmit}
+    handleDocumentUpload={handleDocumentUpload}
+    showNotificationAlert={(msg) => alert(msg)}
+    employeeId={employeeId}   // ✅ pass the actual employee ID
+    token={localStorage.getItem("token")}
+  />
+)}
+
+      {activeTab === "askQuery" && renderAskQuery()}
+      {activeTab === "myQueries" && renderMyQueries()}
+      {activeTab === "queryDetails" && renderQueryDetails()}
+      {activeTab === "support" && renderSupport()}
+    </div>
+  </main>
+</div>
+
     </div>
   );
 }

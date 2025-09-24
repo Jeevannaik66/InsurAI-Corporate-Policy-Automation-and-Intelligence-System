@@ -2,33 +2,29 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
-import "../Employee/EmployeeDashboard.css";
+import "../Dashboard.css";
 
 export default function HRDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("home");
 
-  // Dummy data for Claim Management
-  const [pendingClaims, setPendingClaims] = useState([
-    { id: 1, employee: "John Doe", type: "Dental", amount: "$250", date: "2023-10-15", status: "Pending" },
-    { id: 2, employee: "Jane Smith", type: "Medical", amount: "$1200", date: "2023-10-10", status: "Pending" },
-  ]);
+  // Claims from backend
+  const [pendingClaims, setPendingClaims] = useState([]);
+  const [mappedClaims, setMappedClaims] = useState([]); // For employee names
 
-  // Dummy data for Fraud Alerts
-  const [fraudAlerts, setFraudAlerts] = useState([
-    { id: 1, type: "Duplicate Claim", employee: "John Doe", date: "2023-10-15", status: "Pending", priority: "High" },
-    { id: 2, type: "Unusual Activity", employee: "Jane Smith", date: "2023-10-12", status: "Pending", priority: "Medium" },
-  ]);
-
-  // Employees from backend
+  // Employees from backend (for reference/filter)
   const [employees, setEmployees] = useState([]);
   const [searchName, setSearchName] = useState("");
   const [policyFilter, setPolicyFilter] = useState("");
 
-  // Modal state
+  // Fraud alerts (optional)
+  const [fraudAlerts, setFraudAlerts] = useState([]);
+
+  // Modal state (for employee details/documents)
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showModal, setShowModal] = useState(false);
 
+  // ---------------- Fetch employees ----------------
   useEffect(() => {
     fetch("http://localhost:8080/auth/employees")
       .then(res => res.json())
@@ -37,7 +33,7 @@ export default function HRDashboard() {
   }, []);
 
   const filteredEmployees = employees.filter(emp => {
-    const matchesName = emp.name.toLowerCase().includes(searchName.toLowerCase());
+    const matchesName = emp.name?.toLowerCase().includes(searchName.toLowerCase());
     const matchesPolicy = policyFilter === "" || emp.role === policyFilter;
     return matchesName && matchesPolicy;
   });
@@ -61,24 +57,110 @@ export default function HRDashboard() {
     navigate("/hr/login");
   };
 
-  const approveClaim = (id) => {
-    setPendingClaims(claims =>
-      claims.map(claim =>
-        claim.id === id ? { ...claim, status: "Approved" } : claim
-      )
-    );
-    alert("Claim approved successfully");
+  // ---------------- Fetch claims ----------------
+  const fetchClaims = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/hr/login");
+        return;
+      }
+
+      const res = await fetch("http://localhost:8080/hr/claims", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPendingClaims(data); // just store raw claims
+      } else if (res.status === 403) {
+        console.error("Forbidden: Invalid token or role");
+        navigate("/hr/login");
+      } else {
+        console.error("Failed to fetch claims");
+      }
+    } catch (err) {
+      console.error("Error fetching claims:", err);
+    }
   };
 
-  const rejectClaim = (id) => {
-    setPendingClaims(claims =>
-      claims.map(claim =>
-        claim.id === id ? { ...claim, status: "Rejected" } : claim
-      )
-    );
-    alert("Claim rejected");
+  useEffect(() => {
+    fetchClaims();
+  }, []);
+
+  // ---------------- Map employee names after both claims & employees are loaded ----------------
+  useEffect(() => {
+    if (pendingClaims.length > 0 && employees.length > 0) {
+      const updatedClaims = pendingClaims.map(claim => {
+        const employee = employees.find(emp => emp.id === claim.employeeId);
+        return {
+          ...claim,
+          employeeName: employee?.name || "Unknown",
+          employeeIdDisplay: employee?.employeeId || "N/A",
+          documents: claim.documents || [],
+        };
+      });
+      setMappedClaims(updatedClaims);
+    }
+  }, [pendingClaims, employees]);
+
+  // ---------------- Approve a claim ----------------
+  const approveClaim = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:8080/hr/claims/approve/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const updatedClaim = await res.json();
+        setMappedClaims(prev =>
+          prev.map(claim => (claim.id === id ? {
+            ...updatedClaim,
+            employeeName: employees.find(emp => emp.id === updatedClaim.employeeId)?.name || "Unknown",
+            employeeIdDisplay: employees.find(emp => emp.id === updatedClaim.employeeId)?.employeeId || "N/A",
+            documents: updatedClaim.documents || [],
+          } : claim))
+        );
+        alert("Claim approved successfully");
+      } else {
+        alert("Failed to approve claim");
+      }
+    } catch (err) {
+      console.error("Error approving claim:", err);
+    }
   };
 
+  // ---------------- Reject a claim ----------------
+  const rejectClaim = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:8080/hr/claims/reject/${id}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const updatedClaim = await res.json();
+        setMappedClaims(prev =>
+          prev.map(claim => (claim.id === id ? {
+            ...updatedClaim,
+            employeeName: employees.find(emp => emp.id === updatedClaim.employeeId)?.name || "Unknown",
+            employeeIdDisplay: employees.find(emp => emp.id === updatedClaim.employeeId)?.employeeId || "N/A",
+            documents: updatedClaim.documents || [],
+          } : claim))
+        );
+        alert("Claim rejected");
+      } else {
+        alert("Failed to reject claim");
+      }
+    } catch (err) {
+      console.error("Error rejecting claim:", err);
+    }
+  };
+
+  // ---------------- Resolve fraud alert (optional) ----------------
   const resolveFraudAlert = (id) => {
     setFraudAlerts(alerts =>
       alerts.map(alert =>
@@ -86,21 +168,18 @@ export default function HRDashboard() {
       )
     );
     alert("Fraud alert resolved");
-  };
+  }
 
-  // Policies state
+  // ---------------- Policies state ----------------
   const [policies, setPolicies] = useState([]);
   const [selectedPolicy, setSelectedPolicy] = useState(null);
-
 
   useEffect(() => {
     const fetchPolicies = async () => {
       try {
         const token = localStorage.getItem("token");
         const res = await fetch("http://localhost:8080/employee/policies", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (res.ok) {
           const data = await res.json();
@@ -132,215 +211,165 @@ export default function HRDashboard() {
   }, []);
 
 
+// Render content based on active tab
+const renderContent = () => {
+  switch (activeTab) {
+    case "home":
+      return (
+        <div>
+          <h4 className="mb-4">HR Dashboard Overview</h4>
 
-  // Render content based on active tab
-  const renderContent = () => {
-    switch (activeTab) {
-      case "home":
-        return (
-          <div>
-            <h4 className="mb-4">HR Dashboard Overview</h4>
-
-            <div className="row mb-4">
-              <div className="col-md-3 mb-3">
-                <div className="card bg-primary text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Pending Claims</h5>
-                    <h2 className="card-text">{pendingClaims.length}</h2>
-                    <p><i className="bi bi-clock-history"></i> Require review</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-success text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Active Employees</h5>
-                    <h2 className="card-text">{employees.length}</h2>
-                    <p><i className="bi bi-people-fill"></i> With active policies</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-warning text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Fraud Alerts</h5>
-                    <h2 className="card-text">{fraudAlerts.filter(a => a.status !== "Resolved").length}</h2>
-                    <p><i className="bi bi-exclamation-triangle"></i> Need attention</p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-info text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Policies Expiring</h5>
-                    <h2 className="card-text">3</h2>
-                    <p><i className="bi bi-calendar-x"></i> In next 30 days</p>
-                  </div>
+          <div className="row mb-4">
+            <div className="col-md-3 mb-3">
+              <div className="card bg-primary text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Pending Claims</h5>
+                  <h2 className="card-text">{pendingClaims.filter(c => c.status === "Pending").length}</h2>
+                  <p><i className="bi bi-clock-history"></i> Require review</p>
                 </div>
               </div>
             </div>
-
-            {/* Pending Claims + Fraud Alerts preview */}
-            <div className="row">
-              <div className="col-md-6 mb-4">
-                <div className="card">
-                  <div className="card-header bg-primary text-white">
-                    <h5 className="mb-0">Pending Claims</h5>
-                  </div>
-                  <div className="card-body">
-                    {pendingClaims.slice(0, 3).map(claim => (
-                      <div key={claim.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
-                        <div>
-                          <h6 className="mb-0">{claim.employee}</h6>
-                          <small className="text-muted">{claim.type} • {claim.amount}</small>
-                        </div>
-                        <span className="badge bg-warning">{claim.status}</span>
-                      </div>
-                    ))}
-                    <button className="btn btn-outline-primary mt-3 btn-sm" onClick={() => setActiveTab("claims")}>
-                      View All Claims
-                    </button>
-                  </div>
+            <div className="col-md-3 mb-3">
+              <div className="card bg-success text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Active Employees</h5>
+                  <h2 className="card-text">{employees.length}</h2>
+                  <p><i className="bi bi-people-fill"></i> With active policies</p>
                 </div>
               </div>
-
-              <div className="col-md-6 mb-4">
-                <div className="card">
-                  <div className="card-header bg-primary text-white">
-                    <h5 className="mb-0">Fraud Alerts</h5>
-                  </div>
-                  <div className="card-body">
-                    {fraudAlerts.slice(0, 3).map(alert => (
-                      <div key={alert.id} className="border-bottom py-2">
-                        <div className="d-flex justify-content-between">
-                          <h6 className="mb-0">{alert.type}</h6>
-                          <span className={`badge ${alert.priority === 'High' ? 'bg-danger' : 'bg-warning'}`}>
-                            {alert.priority}
-                          </span>
-                        </div>
-                        <small className="text-muted">{alert.employee} • {alert.date}</small>
-                        <div>
-                          <span className={`badge ${alert.status === 'Pending' ? 'bg-warning' : alert.status === 'Resolved' ? 'bg-success' : 'bg-info'}`}>
-                            {alert.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    <button className="btn btn-outline-primary mt-3 btn-sm" onClick={() => setActiveTab("fraud")}>
-                      View All Alerts
-                    </button>
-                  </div>
+            </div>
+            <div className="col-md-3 mb-3">
+              <div className="card bg-warning text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Fraud Alerts</h5>
+                  <h2 className="card-text">{fraudAlerts.filter(a => a.status !== "Resolved").length}</h2>
+                  <p><i className="bi bi-exclamation-triangle"></i> Need attention</p>
+                </div>
+              </div>
+            </div>
+            <div className="col-md-3 mb-3">
+              <div className="card bg-info text-white">
+                <div className="card-body">
+                  <h5 className="card-title">Policies Expiring</h5>
+                  <h2 className="card-text">3</h2>
+                  <p><i className="bi bi-calendar-x"></i> In next 30 days</p>
                 </div>
               </div>
             </div>
           </div>
-        );
 
-      case "claims":
-        return (
-          <div>
-            <h4 className="mb-4">Claim Approval Management</h4>
-
-            {/* Filters */}
-            <div className="card mb-4">
-              <div className="card-header bg-primary text-white">
-                <h5 className="mb-0">Filters</h5>
-              </div>
-              <div className="card-body">
-                <div className="row">
-                  <div className="col-md-3 mb-3">
-                    <label className="form-label">Status</label>
-                    <select className="form-select">
-                      <option value="">All Statuses</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Approved">Approved</option>
-                      <option value="Rejected">Rejected</option>
-                    </select>
-                  </div>
-                  <div className="col-md-3 mb-3">
-                    <label className="form-label">Claim Type</label>
-                    <select className="form-select">
-                      <option value="">All Types</option>
-                      <option value="Medical">Medical</option>
-                      <option value="Dental">Dental</option>
-                      <option value="Vision">Vision</option>
-                    </select>
-                  </div>
-                  <div className="col-md-3 mb-3">
-                    <label className="form-label">Date From</label>
-                    <input type="date" className="form-control" />
-                  </div>
-                  <div className="col-md-3 mb-3">
-                    <label className="form-label">Date To</label>
-                    <input type="date" className="form-control" />
-                  </div>
+          {/* Pending Claims preview */}
+          <div className="row">
+            <div className="col-md-6 mb-4">
+              <div className="card">
+                <div className="card-header bg-primary text-white">
+                  <h5 className="mb-0">Pending Claims</h5>
                 </div>
-                <button className="btn btn-primary">Apply Filters</button>
+                <div className="card-body">
+                  {pendingClaims.slice(0, 3).map(claim => (
+                    <div key={claim.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                      <div>
+                        <h6 className="mb-0">{claim.employeeName}</h6>
+                        <small className="text-muted">{claim.title} • ${claim.amount}</small>
+                      </div>
+                      <span className={`badge ${claim.status === 'Pending' ? 'bg-warning' : claim.status === 'Approved' ? 'bg-success' : 'bg-danger'}`}>
+                        {claim.status}
+                      </span>
+                    </div>
+                  ))}
+                  <button className="btn btn-outline-primary mt-3 btn-sm" onClick={() => setActiveTab("claims")}>
+                    View All Claims
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      );
 
-            {/* All Claims */}
-            <div className="card">
-              <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">All Claims</h5>
-                <span className="badge bg-light text-dark">{pendingClaims.filter(c => c.status === "Pending").length} Pending</span>
-              </div>
-              <div className="card-body">
-                <div className="table-responsive">
-                  <table className="table table-striped">
-                    <thead>
-                      <tr>
-                        <th>Employee</th>
-                        <th>Type</th>
-                        <th>Amount</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Actions</th>
+    case "claims":
+      return (
+        <div>
+          <h4 className="mb-4">Claim Approval Management</h4>
+
+          {/* All Claims Table */}
+          <div className="card">
+            <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">All Claims</h5>
+              <span className="badge bg-light text-dark">{pendingClaims.filter(c => c.status === "Pending").length} Pending</span>
+            </div>
+            <div className="card-body">
+              <div className="table-responsive">
+                <table className="table table-striped">
+                  <thead>
+                    <tr>
+                      <th>Employee Name</th>
+                      <th>Employee ID</th>
+                      <th>Claim Type</th>
+                      <th>Amount</th>
+                      <th>Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                      <th>Documents</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mappedClaims.map(claim => (
+                      <tr key={claim.id}>
+                        <td>{claim.employeeName}</td>
+                        <td>{claim.employeeIdDisplay}</td>
+                        <td>{claim.title}</td>
+                        <td>${claim.amount}</td>
+                        <td>{claim.claimDate?.split("T")[0]}</td>
+                        <td>
+                          <span className={`badge ${claim.status === 'Pending' ? 'bg-warning' : claim.status === 'Approved' ? 'bg-success' : 'bg-danger'}`}>
+                            {claim.status}
+                          </span>
+                        </td>
+                        <td>
+                          <button className="btn btn-sm btn-outline-primary me-1" onClick={() => alert("View feature coming soon")}>
+                            <i className="bi bi-eye"></i> View
+                          </button>
+                          {claim.status === "Pending" && (
+                            <>
+                              <button className="btn btn-sm btn-outline-success me-1" onClick={() => approveClaim(claim.id)}>
+                                <i className="bi bi-check"></i> Approve
+                              </button>
+                              <button className="btn btn-sm btn-outline-danger" onClick={() => rejectClaim(claim.id)}>
+                                <i className="bi bi-x"></i> Reject
+                              </button>
+                            </>
+                          )}
+                        </td>
+                        <td>
+                          {claim.documents?.length > 0 ? (
+                            <ul className="mb-0">
+                              {claim.documents.map((doc, idx) => (
+                                <li key={idx}>
+                                  <a href={`http://localhost:8080${doc}`} target="_blank" rel="noopener noreferrer">
+                                    {doc.split("/").pop()}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <span>No documents</span>
+                          )}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {pendingClaims.map(claim => (
-                        <tr key={claim.id}>
-                          <td>{claim.employee}</td>
-                          <td>{claim.type}</td>
-                          <td>{claim.amount}</td>
-                          <td>{claim.date}</td>
-                          <td>
-                            <span className={`badge ${claim.status === 'Pending' ? 'bg-warning' : claim.status === 'Approved' ? 'bg-success' : 'bg-danger'}`}>
-                              {claim.status}
-                            </span>
-                          </td>
-                          <td>
-                            <button className="btn btn-sm btn-outline-primary me-1">
-                              <i className="bi bi-eye"></i> View
-                            </button>
-                            {claim.status === "Pending" && (
-                              <>
-                                <button
-                                  className="btn btn-sm btn-outline-success me-1"
-                                  onClick={() => approveClaim(claim.id)}
-                                >
-                                  <i className="bi bi-check"></i> Approve
-                                </button>
-                                <button
-                                  className="btn btn-sm btn-outline-danger"
-                                  onClick={() => rejectClaim(claim.id)}
-                                >
-                                  <i className="bi bi-x"></i> Reject
-                                </button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
-        );
+        </div>
+      );
+  
 
+
+  
+      
 case "viewPolicy":
   return (
     <div>
@@ -897,7 +926,7 @@ case "employees":
 <div className="dashboard-main">
   {/* Sidebar */}
   <aside className="dashboard-sidebar">
-    <nav className="nav flex-column">
+    <nav className="nav flex-column p-3">
       <a
         href="#"
         className={`nav-link ${activeTab === "home" ? "active" : ""}`}

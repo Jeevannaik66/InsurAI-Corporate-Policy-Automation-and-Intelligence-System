@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 export default function EmployeeRegister() {
-  const [employeeId, setEmployeeId] = useState(""); // NEW
+  const [employeeId, setEmployeeId] = useState(""); 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -16,13 +16,23 @@ export default function EmployeeRegister() {
       const res = await fetch("http://localhost:8080/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ employeeId, name, email, password }), // include employeeId
+        body: JSON.stringify({ employeeId, name, email, password }), 
       });
 
-      const text = await res.text();
+      const data = await res.json().catch(() => null); // handle JSON or plain text
+      const text = typeof data === "string" ? data : (data?.message || "Registered successfully!");
       setMessage(text);
 
       if (res.ok) {
+        // ✅ Store employee info in localStorage
+        localStorage.setItem("employeeId", employeeId);
+        localStorage.setItem("name", name);
+        localStorage.setItem("email", email);
+        if (data?.token) {
+          localStorage.setItem("token", data.token);
+        }
+
+        // Redirect to login after short delay
         setTimeout(() => {
           navigate("/employee/login");
         }, 1000);

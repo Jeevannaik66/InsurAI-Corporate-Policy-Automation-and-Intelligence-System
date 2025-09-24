@@ -199,12 +199,12 @@ export default function AdminPolicy() {
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Coverage Amount ($)</label>
+              <label className="form-label">Coverage Amount (₹)</label>
               <input type="number" className="form-control" name="coverageAmount" value={policyData.coverageAmount} onChange={handleChange} required />
             </div>
 
             <div className="mb-3">
-              <label className="form-label">Monthly Premium ($)</label>
+              <label className="form-label">Monthly Premium (₹)</label>
               <input type="number" className="form-control" name="monthlyPremium" value={policyData.monthlyPremium} onChange={handleChange} required />
             </div>
 
@@ -294,8 +294,8 @@ export default function AdminPolicy() {
                 <p><strong>Start Date:</strong> {viewPolicy.startDate}</p>
                 <p><strong>Type:</strong> {viewPolicy.policyType}</p>
                 <p><strong>Provider:</strong> {viewPolicy.providerName}</p>
-                <p><strong>Coverage:</strong> ${viewPolicy.coverageAmount}</p>
-                <p><strong>Monthly Premium:</strong> ${viewPolicy.monthlyPremium}</p>
+                <p><strong>Coverage:</strong> ₹{viewPolicy.coverageAmount}</p>
+                <p><strong>Monthly Premium:</strong> ₹{viewPolicy.monthlyPremium}</p>
                 <p><strong>Renewal Date:</strong> {viewPolicy.renewalDate}</p>
                 <p><strong>Status:</strong> {viewPolicy.policyStatus}</p>
                 <p><strong>Description:</strong> {viewPolicy.policyDescription}</p>
