@@ -7,6 +7,7 @@ import "../Dashboard.css";
 import AgentRegister from "../../auth/AgentRegister";
 import HrRegister from "../../auth/HRRegister";
 import AdminPolicy from "./AdminPolicy";
+import AdminReportsAnalytics from "./AdminReportsAnalytics"; // adjust path as needed
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -114,14 +115,14 @@ export default function AdminDashboard() {
     }
   };
 
-  // ---------------- Fetch all claims with policies mapping ----------------
+  // ---------------- Fetch all claims with policies, employee & HR mapping ----------------
   const fetchAllClaims = async () => {
     try {
       const token = localStorage.getItem("token");
       if (!token) return;
 
       // Fetch claims
-      const claimsRes = await fetch("http://localhost:8080/claims/all", {
+      const claimsRes = await fetch("http://localhost:8080/admin/claims", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!claimsRes.ok) {
@@ -357,7 +358,7 @@ export default function AdminDashboard() {
         case "createPolicy":
         return <AdminPolicy />;
 
-        case "claims":
+ case "claims":
   return (
     <div>
       <h4 className="mb-4">All Claims</h4>
@@ -383,8 +384,8 @@ export default function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {allClaims.length > 0 ? (
-                  allClaims.map((claim) => (
+                {claims.length > 0 ? (
+                  claims.map((claim) => (
                     <tr key={claim.id}>
                       <td>{claim.id}</td>
                       <td>{claim.employeeName || "Unknown"}</td>
@@ -404,25 +405,35 @@ export default function AdminDashboard() {
                           {claim.status}
                         </span>
                       </td>
-                      <td>
-                        {claim.documents && claim.documents.length > 0 ? (
-                          claim.documents.map((doc, idx) => (
+                      {/* Documents */}
+                    <td>
+                      {claim.documents?.length > 0 ? (
+                        <div className="d-flex flex-column gap-1">
+                          {claim.documents.map((doc, idx) => (
                             <a
                               key={idx}
-                              href={doc.url}
+                              href={`http://localhost:8080${doc}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="d-block"
+                              className="btn btn-sm btn-outline-secondary text-truncate"
+                              style={{ maxWidth: "120px" }}
+                              title={doc.split("/").pop()}
                             >
-                              {doc.name}
+                              <i className="bi bi-file-earmark-text me-1"></i>
+                              Doc {idx + 1}
                             </a>
-                          ))
-                        ) : (
-                          "No Documents"
-                        )}
-                      </td>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted">No docs</span>
+                      )}
+                    </td>
                       <td>{claim.remarks || "-"}</td>
-                      <td>{new Date(claim.submittedOn).toLocaleDateString()}</td>
+                      <td>
+                        {claim.claimDate
+                          ? new Date(claim.claimDate).toLocaleDateString()
+                          : "N/A"}
+                      </td>
                     </tr>
                   ))
                 ) : (
@@ -441,96 +452,9 @@ export default function AdminDashboard() {
   );
 
 
-      case "reports":
-        return (
-          <div>
-            <h4 className="mb-4">Reports & Analytics</h4>
-            <div className="row mb-4">
-              <div className="col-md-4 mb-3">   
-                <div className="card">
-                  <div className="card-body text-center">
-                    <i className="bi bi-file-earmark-text fs-1 text-primary mb-3"></i>
-                    <h5>Monthly Claims Report</h5>
-                    <p>Summary of all claims processed this month</p>
-                    <button className="btn btn-outline-primary">Generate PDF</button>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4 mb-3">
-                <div className="card">
-                  <div className="card-body text-center">
-                    <i className="bi bi-graph-up fs-1 text-success mb-3"></i>
-                    <h5>Financial Analytics</h5>
-                    <p>Revenue, payouts, and financial trends</p>
-                    <button className="btn btn-outline-success">View Analytics</button>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4 mb-3">
-                <div className="card">
-                  <div className="card-body text-center">
-                    <i className="bi bi-people fs-1 text-info mb-3"></i>
-                    <h5>User Activity Report</h5>
-                    <p>Usage patterns and system activity</p>
-                    <button className="btn btn-outline-info">Generate Report</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="card">
-              <div className="card-header bg-primary text-white">
-                <h5 className="mb-0">Report History</h5>
-              </div>
-              <div className="card-body">
-                <div className="table-responsive">
-                  <table className="table table-striped">
-                    <thead>
-                      <tr>
-                        <th>Report Name</th>
-                        <th>Generated On</th>
-                        <th>Type</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>October 2023 Claims Report</td>
-                        <td>2023-11-01</td>
-                        <td><span className="badge bg-primary">PDF</span></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary me-1">
-                            <i className="bi bi-download"></i> Download
-                          </button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>Q3 2023 Financial Analytics</td>
-                        <td>2023-10-15</td>
-                        <td><span className="badge bg-success">Excel</span></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary me-1">
-                            <i className="bi bi-download"></i> Download
-                          </button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>User Activity September 2023</td>
-                        <td>2023-10-05</td>
-                        <td><span className="badge bg-info">CSV</span></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary me-1">
-                            <i className="bi bi-download"></i> Download
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+ case "reports":
+  return <AdminReportsAnalytics />;
+
       
       case "fraud":
         return (
@@ -860,8 +784,8 @@ export default function AdminDashboard() {
 
       <a
         href="#"
-        className={`nav-link ${activeTab === "allClaims" ? "active" : ""}`}
-        onClick={(e) => { e.preventDefault(); setActiveTab("allClaims"); }}
+        className={`nav-link ${activeTab === "claims" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("claims"); }}
       >
         <i className="bi bi-card-list me-2"></i> All Claims
       </a>

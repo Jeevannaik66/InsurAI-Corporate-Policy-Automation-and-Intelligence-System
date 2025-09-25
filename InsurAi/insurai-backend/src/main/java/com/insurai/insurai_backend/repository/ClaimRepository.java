@@ -30,8 +30,14 @@ public interface ClaimRepository extends JpaRepository<Claim, Long> {
 
     // Get all claims of a specific employee by corporate ID and status
     List<Claim> findByEmployee_EmployeeIdAndStatus(String employeeId, String status);
+
+    // Existing: Get all claims assigned to a specific HR
     List<Claim> findByAssignedHrId(Long hrId);
 
     // -------------------- New: count pending claims for a specific HR --------------------
     int countByAssignedHrAndStatus(Hr hr, String status);
+
+    // -------------------- New: fetch all claims assigned to HR with HR details --------------------
+    // This will allow Admin to fetch all claims along with assigned HR info
+    List<Claim> findAll(); // Already provided by JpaRepository, included for clarity
 }

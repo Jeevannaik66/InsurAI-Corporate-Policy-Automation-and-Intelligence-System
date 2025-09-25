@@ -11,7 +11,6 @@ import com.insurai.insurai_backend.model.Claim;
 import com.insurai.insurai_backend.model.Employee;
 import com.insurai.insurai_backend.model.Hr;
 import com.insurai.insurai_backend.repository.ClaimRepository;
-import com.insurai.insurai_backend.service.HrService;
 
 @Service
 public class ClaimService {
@@ -125,12 +124,13 @@ public class ClaimService {
     public List<Claim> getClaimsByEmployeeIdAndStatus(String employeeId, String status) {
         return claimRepository.findByEmployee_EmployeeIdAndStatus(employeeId, status);
     }
-/**
- * Get all claims assigned to a specific HR
- */
-public List<Claim> getClaimsByAssignedHr(Long hrId) {
-    return claimRepository.findByAssignedHrId(hrId);
-}
+
+    /**
+     * Get all claims assigned to a specific HR
+     */
+    public List<Claim> getClaimsByAssignedHr(Long hrId) {
+        return claimRepository.findByAssignedHrId(hrId);
+    }
 
     /**
      * Get claim by ID
@@ -149,5 +149,15 @@ public List<Claim> getClaimsByAssignedHr(Long hrId) {
 
         claim.setUpdatedAt(LocalDateTime.now());
         return claimRepository.save(claim);
+    }
+
+    /**
+     * -------------------- New: Admin support --------------------
+     * Get all claims with full details for Admin dashboard
+     */
+    public List<Claim> getAllClaimsForAdmin() {
+        // Simply returns all claims from the repository
+        // Includes assigned HR, employee, policy, status, documents, etc.
+        return claimRepository.findAll();
     }
 }
