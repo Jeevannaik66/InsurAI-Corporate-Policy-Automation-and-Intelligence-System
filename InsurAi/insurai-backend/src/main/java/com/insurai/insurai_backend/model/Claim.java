@@ -63,6 +63,11 @@ public class Claim {
     @JoinColumn(name = "policy_id", nullable = false)
     private Policy policy;
 
+    // Assigned HR for load-based assignment
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_hr_id")
+    private Hr assignedHr;
+
     // Supporting documents (file paths)
     @ElementCollection
     @CollectionTable(name = "claim_documents", joinColumns = @JoinColumn(name = "claim_id"))
@@ -72,13 +77,14 @@ public class Claim {
     // Constructors
     public Claim() {}
 
-    public Claim(String title, String description, Double amount, LocalDateTime claimDate, Employee employee, Policy policy, List<String> documents) {
+    public Claim(String title, String description, Double amount, LocalDateTime claimDate, Employee employee, Policy policy, Hr assignedHr, List<String> documents) {
         this.title = title;
         this.description = description;
         this.amount = amount;
         this.claimDate = claimDate;
         this.employee = employee;
         this.policy = policy;
+        this.assignedHr = assignedHr;
         this.documents = documents;
     }
 
@@ -165,6 +171,14 @@ public class Claim {
 
     public void setPolicy(Policy policy) {
         this.policy = policy;
+    }
+
+    public Hr getAssignedHr() {
+        return assignedHr;
+    }
+
+    public void setAssignedHr(Hr assignedHr) {
+        this.assignedHr = assignedHr;
     }
 
     public List<String> getDocuments() {

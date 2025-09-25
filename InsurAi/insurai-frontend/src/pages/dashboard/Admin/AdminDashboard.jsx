@@ -15,6 +15,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [fraudAlerts, setFraudAlerts] = useState([]);
   const [systemLogs, setSystemLogs] = useState([]);
+  const [claims, setClaims] = useState([]);
+  const [policies, setPolicies] = useState([]);
 
   const [newHR, setNewHR] = useState({ name: "", email: "", password: "" });
   const [newAgent, setNewAgent] = useState({ name: "", email: "", password: "" });
@@ -29,44 +31,44 @@ export default function AdminDashboard() {
     try {
       const token = localStorage.getItem("token");
 
-// Fetch agents
-const agentsRes = await axios.get("http://localhost:8080/agent", {
-  headers: { Authorization: `Bearer ${token}` },
-});
-const agentsData = Array.isArray(agentsRes.data) ? agentsRes.data : [];
-const mappedAgents = agentsData.map((a) => ({
-  id: a.id,
-  name: a.name,
-  email: a.email,
-  role: "Agent",
-  status: "Active",
-}));
+      // Fetch agents
+      const agentsRes = await axios.get("http://localhost:8080/agent", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const agentsData = Array.isArray(agentsRes.data) ? agentsRes.data : [];
+      const mappedAgents = agentsData.map((a) => ({
+        id: a.id,
+        name: a.name,
+        email: a.email,
+        role: "Agent",
+        status: "Active",
+      }));
 
-// Fetch employees
-const employeesRes = await axios.get("http://localhost:8080/auth/employees", {
-  headers: { Authorization: `Bearer ${token}` },
-});
-const employeesData = Array.isArray(employeesRes.data) ? employeesRes.data : [];
-const mappedEmployees = employeesData.map((e) => ({
-  id: e.id,
-  name: e.name,
-  email: e.email,
-  role: "Employee",
-  status: e.active ? "Active" : "Inactive",
-}));
+      // Fetch employees
+      const employeesRes = await axios.get("http://localhost:8080/auth/employees", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const employeesData = Array.isArray(employeesRes.data) ? employeesRes.data : [];
+      const mappedEmployees = employeesData.map((e) => ({
+        id: e.id,
+        name: e.name,
+        email: e.email,
+        role: "Employee",
+        status: e.active ? "Active" : "Inactive",
+      }));
 
-// Fetch HRs
-const hrsRes = await axios.get("http://localhost:8080/hr", {
-  headers: { Authorization: `Bearer ${token}` },
-});
-const hrsData = Array.isArray(hrsRes.data) ? hrsRes.data : [];
-const mappedHRs = hrsData.map((h) => ({
-  id: h.id,
-  name: h.name,
-  email: h.email,
-  role: "HR",
-  status: "Active",
-}));
+      // Fetch HRs
+      const hrsRes = await axios.get("http://localhost:8080/hr", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const hrsData = Array.isArray(hrsRes.data) ? hrsRes.data : [];
+      const mappedHRs = hrsData.map((h) => ({
+        id: h.id,
+        name: h.name,
+        email: h.email,
+        role: "HR",
+        status: "Active",
+      }));
 
       // Combine agents + employees + HRs
       const allUsers = [...mappedAgents, ...mappedEmployees, ...mappedHRs];
@@ -80,37 +82,106 @@ const mappedHRs = hrsData.map((h) => ({
     fetchUsers();
   }, [fetchUsers]);
 
- // ---------------- Register HR ----------------
-const handleRegisterHR = async (hrData) => {
-  try {
-    const token = localStorage.getItem("token");
-    await axios.post("http://localhost:8080/admin/hr/register", hrData, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setNewHR({ name: "", email: "", password: "" });
-    setActiveTab("users");
-    fetchUsers();
-  } catch (err) {
-    console.error("Failed to register HR", err);
-    alert("Error registering HR");
-  }
-};
+  // ---------------- Register HR ----------------
+  const handleRegisterHR = async (hrData) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post("http://localhost:8080/admin/hr/register", hrData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNewHR({ name: "", email: "", password: "" });
+      setActiveTab("users");
+      fetchUsers();
+    } catch (err) {
+      console.error("Failed to register HR", err);
+      alert("Error registering HR");
+    }
+  };
 
-// ---------------- Register Agent ----------------
-const handleRegisterAgent = async (agentData) => {
-  try {
-    const token = localStorage.getItem("token");
-    await axios.post("http://localhost:8080/admin/agent/register", agentData, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    setNewAgent({ name: "", email: "", password: "" });
-    setActiveTab("users");
-    fetchUsers();
-  } catch (err) {
-    console.error("Failed to register Agent", err);
-    alert("Error registering Agent");
-  }
-};
+  // ---------------- Register Agent ----------------
+  const handleRegisterAgent = async (agentData) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.post("http://localhost:8080/admin/agent/register", agentData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setNewAgent({ name: "", email: "", password: "" });
+      setActiveTab("users");
+      fetchUsers();
+    } catch (err) {
+      console.error("Failed to register Agent", err);
+      alert("Error registering Agent");
+    }
+  };
+
+  // ---------------- Fetch all claims with policies mapping ----------------
+  const fetchAllClaims = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+
+      // Fetch claims
+      const claimsRes = await fetch("http://localhost:8080/claims/all", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!claimsRes.ok) {
+        console.error("Failed to fetch claims");
+        return;
+      }
+      const claimsData = await claimsRes.json();
+
+      // Fetch employees
+      const empRes = await fetch("http://localhost:8080/auth/employees", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const employees = await empRes.json();
+
+      // Fetch HRs
+      const hrRes = await fetch("http://localhost:8080/hr", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const hrs = await hrRes.json();
+
+      // Fetch policies
+      const policyRes = await fetch("http://localhost:8080/admin/policies", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const policiesData = await policyRes.json();
+      setPolicies(policiesData);
+
+      // Map claims with employee, HR, and policy details
+      const mappedClaims = claimsData.map((claim) => {
+        const employee = employees.find(
+          (emp) => emp.id === claim.employeeId || emp.id === claim.employee_id
+        );
+        const hr = hrs.find(
+          (hr) => hr.id === claim.assignedHrId || hr.id === claim.assigned_hr_id
+        );
+        const policy = policiesData.find(
+          (p) => p.id === claim.policyId || p.id === claim.policy_id
+        );
+
+        return {
+          ...claim,
+          employeeName: employee?.name || "Unknown",
+          employeeIdDisplay: employee?.employeeId || "N/A",
+          documents: claim.documents || [],
+          assignedHrName: hr?.name || "Not Assigned",
+          policyName: policy?.policyName || "N/A",
+          remarks: claim.remarks || "",
+        };
+      });
+
+      setClaims(mappedClaims);
+    } catch (err) {
+      console.error("Error fetching claims:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchAllClaims();
+  }, []);
+
 
 
   // ---------------- Render content ----------------
@@ -285,6 +356,89 @@ const handleRegisterAgent = async (agentData) => {
 
         case "createPolicy":
         return <AdminPolicy />;
+
+        case "claims":
+  return (
+    <div>
+      <h4 className="mb-4">All Claims</h4>
+
+      <div className="card">
+        <div className="card-header bg-primary text-white">
+          <h5 className="mb-0">Claims List</h5>
+        </div>
+        <div className="card-body">
+          <div className="table-responsive">
+            <table className="table table-striped">
+              <thead>
+                <tr>
+                  <th>Claim ID</th>
+                  <th>Employee Name</th>
+                  <th>Employee ID</th>
+                  <th>Policy Name</th>
+                  <th>Assigned HR</th>
+                  <th>Status</th>
+                  <th>Documents</th>
+                  <th>Remarks</th>
+                  <th>Submitted On</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allClaims.length > 0 ? (
+                  allClaims.map((claim) => (
+                    <tr key={claim.id}>
+                      <td>{claim.id}</td>
+                      <td>{claim.employeeName || "Unknown"}</td>
+                      <td>{claim.employeeIdDisplay || "N/A"}</td>
+                      <td>{claim.policyName || "N/A"}</td>
+                      <td>{claim.assignedHrName || "Not Assigned"}</td>
+                      <td>
+                        <span
+                          className={`badge ${
+                            claim.status === "Approved"
+                              ? "bg-success"
+                              : claim.status === "Rejected"
+                              ? "bg-danger"
+                              : "bg-warning"
+                          }`}
+                        >
+                          {claim.status}
+                        </span>
+                      </td>
+                      <td>
+                        {claim.documents && claim.documents.length > 0 ? (
+                          claim.documents.map((doc, idx) => (
+                            <a
+                              key={idx}
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="d-block"
+                            >
+                              {doc.name}
+                            </a>
+                          ))
+                        ) : (
+                          "No Documents"
+                        )}
+                      </td>
+                      <td>{claim.remarks || "-"}</td>
+                      <td>{new Date(claim.submittedOn).toLocaleDateString()}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="9" className="text-center">
+                      No claims found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
 
       case "reports":
@@ -702,6 +856,14 @@ const handleRegisterAgent = async (agentData) => {
         onClick={(e) => { e.preventDefault(); setActiveTab("createPolicy"); }}
       >
         <i className="bi bi-file-medical me-2"></i> Create Policy
+      </a>
+
+      <a
+        href="#"
+        className={`nav-link ${activeTab === "allClaims" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("allClaims"); }}
+      >
+        <i className="bi bi-card-list me-2"></i> All Claims
       </a>
 
       <a

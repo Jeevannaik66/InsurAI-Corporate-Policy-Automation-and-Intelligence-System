@@ -1,12 +1,10 @@
 package com.insurai.insurai_backend.service;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import com.insurai.insurai_backend.config.JwtUtil;
 import com.insurai.insurai_backend.model.Agent;
 import com.insurai.insurai_backend.model.Hr;
 import com.insurai.insurai_backend.model.RegisterRequest;
@@ -28,6 +26,9 @@ public class AdminService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     // -------------------- Admin login --------------------
     public boolean validateAdmin(String email, String password) {
         return ADMIN_EMAIL.equals(email) && ADMIN_PASSWORD.equals(password);
@@ -41,37 +42,24 @@ public class AdminService {
         return "ADMIN";
     }
 
-    // -------------------- Generate simple token --------------------
+    // -------------------- Generate JWT token --------------------
     public String generateAdminToken(String email) {
-        String tokenData = email + ":" + System.currentTimeMillis();
-        return Base64.getEncoder().encodeToString(tokenData.getBytes(StandardCharsets.UTF_8));
+        return jwtUtil.generateToken(email, "ADMIN");
     }
 
-    // -------------------- Verify admin token --------------------
+    // -------------------- Verify JWT token --------------------
     public boolean isAdmin(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             System.out.println("[AdminService] Authorization header missing or invalid");
             return false;
         }
 
+        String token = authHeader.substring(7).trim(); // Remove "Bearer " prefix
         try {
-            String token = authHeader.substring(7).trim(); // Remove "Bearer " prefix
-            if (token.isEmpty()) {
-                System.out.println("[AdminService] Token is empty");
-                return false;
-            }
-
-            byte[] decodedBytes = Base64.getDecoder().decode(token);
-            String decoded = new String(decodedBytes, StandardCharsets.UTF_8);
-
-            boolean isAdmin = decoded.startsWith(ADMIN_EMAIL + ":");
-            if (!isAdmin) {
-                System.out.println("[AdminService] Token does not match admin email");
-            }
-
-            return isAdmin;
-        } catch (IllegalArgumentException e) {
-            System.out.println("[AdminService] Failed to decode token: " + e.getMessage());
+            String role = jwtUtil.extractRole(token);
+            return "ADMIN".equalsIgnoreCase(role);
+        } catch (Exception e) {
+            System.out.println("[AdminService] Invalid JWT token: " + e.getMessage());
             return false;
         }
     }

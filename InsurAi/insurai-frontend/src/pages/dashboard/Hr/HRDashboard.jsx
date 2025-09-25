@@ -3,6 +3,10 @@ import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "../Dashboard.css";
+import jsPDF from "jspdf";
+import "jspdf-autotable"; // just import it, no variable needed
+import ReportsAnalytics from "./ReportsAnalytics"; // adjust path if needed
+
 
 export default function HRDashboard() {
   const navigate = useNavigate();
@@ -10,12 +14,20 @@ export default function HRDashboard() {
 
   // Claims from backend
   const [pendingClaims, setPendingClaims] = useState([]);
-  const [mappedClaims, setMappedClaims] = useState([]); // For employee names
+  const [mappedClaims, setMappedClaims] = useState([]); // For employee names + assigned HR + policy
+
+  // State to handle viewing claim
+  const [viewingClaim, setViewingClaim] = useState(null);
+  const openViewModal = (claim) => setViewingClaim(claim);
+  const closeViewModal = () => setViewingClaim(null);
 
   // Employees from backend (for reference/filter)
   const [employees, setEmployees] = useState([]);
   const [searchName, setSearchName] = useState("");
   const [policyFilter, setPolicyFilter] = useState("");
+
+  // HR list for mapping assigned HR
+  const [hrs, setHrs] = useState([]);
 
   // Fraud alerts (optional)
   const [fraudAlerts, setFraudAlerts] = useState([]);
@@ -23,6 +35,19 @@ export default function HRDashboard() {
   // Modal state (for employee details/documents)
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showModal, setShowModal] = useState(false);
+
+  // Policies
+  const [policies, setPolicies] = useState([]);
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
+
+  // Remarks input for claims
+  const [remarksInput, setRemarksInput] = useState("");
+
+  const loggedInHrId = parseInt(localStorage.getItem("id")); // Get HR ID from localStorage
+
+  // ---------------- Status Filter ----------------
+  const [statusFilter, setStatusFilter] = useState("All");
+
 
   // ---------------- Fetch employees ----------------
   useEffect(() => {
@@ -32,148 +57,15 @@ export default function HRDashboard() {
       .catch(err => console.error("Error fetching employees:", err));
   }, []);
 
-  const filteredEmployees = employees.filter(emp => {
-    const matchesName = emp.name?.toLowerCase().includes(searchName.toLowerCase());
-    const matchesPolicy = policyFilter === "" || emp.role === policyFilter;
-    return matchesName && matchesPolicy;
-  });
-
-  const handleView = (employee) => {
-    setSelectedEmployee(employee);
-    setShowModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setSelectedEmployee(null);
-  };
-
-  const handleEdit = (employee) => {
-    alert(`Edit feature coming soon for: ${employee.name}`);
-  };
-
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/hr/login");
-  };
-
-  // ---------------- Fetch claims ----------------
-  const fetchClaims = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        navigate("/hr/login");
-        return;
-      }
-
-      const res = await fetch("http://localhost:8080/hr/claims", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setPendingClaims(data); // just store raw claims
-      } else if (res.status === 403) {
-        console.error("Forbidden: Invalid token or role");
-        navigate("/hr/login");
-      } else {
-        console.error("Failed to fetch claims");
-      }
-    } catch (err) {
-      console.error("Error fetching claims:", err);
-    }
-  };
-
+  // ---------------- Fetch HR list ----------------
   useEffect(() => {
-    fetchClaims();
+    fetch("http://localhost:8080/hr")
+      .then(res => res.json())
+      .then(data => setHrs(data))
+      .catch(err => console.error("Error fetching HR list:", err));
   }, []);
 
-  // ---------------- Map employee names after both claims & employees are loaded ----------------
-  useEffect(() => {
-    if (pendingClaims.length > 0 && employees.length > 0) {
-      const updatedClaims = pendingClaims.map(claim => {
-        const employee = employees.find(emp => emp.id === claim.employeeId);
-        return {
-          ...claim,
-          employeeName: employee?.name || "Unknown",
-          employeeIdDisplay: employee?.employeeId || "N/A",
-          documents: claim.documents || [],
-        };
-      });
-      setMappedClaims(updatedClaims);
-    }
-  }, [pendingClaims, employees]);
-
-  // ---------------- Approve a claim ----------------
-  const approveClaim = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8080/hr/claims/approve/${id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const updatedClaim = await res.json();
-        setMappedClaims(prev =>
-          prev.map(claim => (claim.id === id ? {
-            ...updatedClaim,
-            employeeName: employees.find(emp => emp.id === updatedClaim.employeeId)?.name || "Unknown",
-            employeeIdDisplay: employees.find(emp => emp.id === updatedClaim.employeeId)?.employeeId || "N/A",
-            documents: updatedClaim.documents || [],
-          } : claim))
-        );
-        alert("Claim approved successfully");
-      } else {
-        alert("Failed to approve claim");
-      }
-    } catch (err) {
-      console.error("Error approving claim:", err);
-    }
-  };
-
-  // ---------------- Reject a claim ----------------
-  const rejectClaim = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:8080/hr/claims/reject/${id}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.ok) {
-        const updatedClaim = await res.json();
-        setMappedClaims(prev =>
-          prev.map(claim => (claim.id === id ? {
-            ...updatedClaim,
-            employeeName: employees.find(emp => emp.id === updatedClaim.employeeId)?.name || "Unknown",
-            employeeIdDisplay: employees.find(emp => emp.id === updatedClaim.employeeId)?.employeeId || "N/A",
-            documents: updatedClaim.documents || [],
-          } : claim))
-        );
-        alert("Claim rejected");
-      } else {
-        alert("Failed to reject claim");
-      }
-    } catch (err) {
-      console.error("Error rejecting claim:", err);
-    }
-  };
-
-  // ---------------- Resolve fraud alert (optional) ----------------
-  const resolveFraudAlert = (id) => {
-    setFraudAlerts(alerts =>
-      alerts.map(alert =>
-        alert.id === id ? { ...alert, status: "Resolved" } : alert
-      )
-    );
-    alert("Fraud alert resolved");
-  }
-
-  // ---------------- Policies state ----------------
-  const [policies, setPolicies] = useState([]);
-  const [selectedPolicy, setSelectedPolicy] = useState(null);
-
+  // ---------------- Fetch policies ----------------
   useEffect(() => {
     const fetchPolicies = async () => {
       try {
@@ -203,81 +95,389 @@ export default function HRDashboard() {
           console.error("Failed to fetch policies");
         }
       } catch (err) {
-        console.error("Error:", err);
+        console.error("Error fetching policies:", err);
       }
     };
-
     fetchPolicies();
   }, []);
 
+  const filteredEmployees = employees.filter(emp => {
+    const matchesName = emp.name?.toLowerCase().includes(searchName.toLowerCase());
+    const matchesPolicy = policyFilter === "" || emp.role === policyFilter;
+    return matchesName && matchesPolicy;
+  });
+
+  const handleView = (employee) => {
+    setSelectedEmployee(employee);
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setSelectedEmployee(null);
+  };
+
+  const handleEdit = (employee) => {
+    alert(`Edit feature coming soon for: ${employee.name}`);
+  };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate("/hr/login");
+  };
+
+  // ---------------- Fetch claims assigned to logged-in HR ----------------
+  const fetchClaims = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        navigate("/hr/login");
+        return;
+      }
+
+      const res = await fetch(`http://localhost:8080/hr/claims?hrId=${loggedInHrId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setPendingClaims(data);
+      } else if (res.status === 403) {
+        console.error("Forbidden: Invalid token or role");
+        navigate("/hr/login");
+      } else {
+        console.error("Failed to fetch claims");
+      }
+    } catch (err) {
+      console.error("Error fetching claims:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchClaims();
+  }, [loggedInHrId]);
+
+  // ---------------- Map employee names, assigned HR, and policy ----------------
+  useEffect(() => {
+    if (pendingClaims.length > 0 && employees.length > 0 && hrs.length > 0 && policies.length > 0) {
+      const updatedClaims = pendingClaims.map(claim => {
+        const employee = employees.find(emp => emp.id === claim.employeeId || claim.employee_id);
+        const hr = hrs.find(hr => hr.id === claim.assignedHrId || claim.assigned_hr_id);
+        const policy = policies.find(p => p.id === claim.policyId || claim.policy_id);
+
+        return {
+          ...claim,
+          employeeName: employee?.name || "Unknown",
+          employeeIdDisplay: employee?.employeeId || "N/A",
+          documents: claim.documents || [],
+          assignedHrName: hr?.name || "Not Assigned",
+          policyName: policy?.policyName || "N/A",
+          canModify: claim.assignedHrId === loggedInHrId || claim.assigned_hr_id === loggedInHrId,
+          remarks: claim.remarks || "" // Include remarks
+        };
+      });
+      setMappedClaims(updatedClaims);
+    }
+  }, [pendingClaims, employees, hrs, policies, loggedInHrId]);
+
+  // ---------------- Approve a claim ----------------
+  const approveClaim = async (id, remarks) => {
+    const claim = mappedClaims.find(c => c.id === id);
+    if (!claim.canModify) {
+      alert("You are not assigned to this claim");
+      return;
+    }
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:8080/hr/claims/approve/${id}`, {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ remarks })
+      });
+      if (res.ok) {
+        const updatedClaim = await res.json();
+        const hr = hrs.find(hr => hr.id === updatedClaim.assignedHrId);
+        const policy = policies.find(p => p.id === updatedClaim.policyId);
+        setMappedClaims(prev =>
+          prev.map(c => (c.id === id ? {
+            ...updatedClaim,
+            employeeName: employees.find(emp => emp.id === updatedClaim.employeeId)?.name || "Unknown",
+            employeeIdDisplay: employees.find(emp => emp.id === updatedClaim.employeeId)?.employeeId || "N/A",
+            documents: updatedClaim.documents || [],
+            assignedHrName: hr?.name || "Not Assigned",
+            policyName: policy?.policyName || "N/A",
+            canModify: updatedClaim.assignedHrId === loggedInHrId,
+            remarks: updatedClaim.remarks || ""
+          } : c))
+        );
+        alert("Claim approved successfully");
+      } else {
+        alert("Failed to approve claim");
+      }
+    } catch (err) {
+      console.error("Error approving claim:", err);
+    }
+  };
+
+  // ---------------- Reject a claim ----------------
+  const rejectClaim = async (id, remarks) => {
+    const claim = mappedClaims.find(c => c.id === id);
+    if (!claim.canModify) {
+      alert("You are not assigned to this claim");
+      return;
+    }
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:8080/hr/claims/reject/${id}`, {
+        method: "POST",
+        headers: { 
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ remarks })
+      });
+      if (res.ok) {
+        const updatedClaim = await res.json();
+        const hr = hrs.find(hr => hr.id === updatedClaim.assignedHrId);
+        const policy = policies.find(p => p.id === updatedClaim.policyId);
+        setMappedClaims(prev =>
+          prev.map(c => (c.id === id ? {
+            ...updatedClaim,
+            employeeName: employees.find(emp => emp.id === updatedClaim.employeeId)?.name || "Unknown",
+            employeeIdDisplay: employees.find(emp => emp.id === updatedClaim.employeeId)?.employeeId || "N/A",
+            documents: updatedClaim.documents || [],
+            assignedHrName: hr?.name || "Not Assigned",
+            policyName: policy?.policyName || "N/A",
+            canModify: updatedClaim.assignedHrId === loggedInHrId,
+            remarks: updatedClaim.remarks || ""
+          } : c))
+        );
+        alert("Claim rejected");
+      } else {
+        alert("Failed to reject claim");
+      }
+    } catch (err) {
+      console.error("Error rejecting claim:", err);
+    }
+  };
+
+  // ---------------- Resolve fraud alert (optional) ----------------
+  const resolveFraudAlert = (id) => {
+    setFraudAlerts(alerts =>
+      alerts.map(alert =>
+        alert.id === id ? { ...alert, status: "Resolved" } : alert
+      )
+    );
+    alert("Fraud alert resolved");
+  };
+
+   // ---------------- Filtered Claims for Table ----------------
+  const displayedClaims = mappedClaims.filter(claim =>
+    statusFilter === "All" ? true : claim.status === statusFilter
+  );
+
+
+ // ---------------- Download CSV ----------------
+const downloadCSV = () => {
+  if (!displayedClaims.length) return alert("No claims to download");
+
+  const headers = [
+    "Employee Name",
+    "Employee ID",
+    "Claim Type",
+    "Amount",
+    "Date",
+    "Status",
+    "Policy Name",
+    "Remarks",
+    "Documents"
+  ];
+
+  const rows = displayedClaims.map(c => [
+    c.employeeName,
+    c.employeeIdDisplay,
+    c.title,
+    c.amount,
+    c.claimDate?.split("T")[0],
+    c.status,
+    c.policyName,
+    c.remarks || "",
+    c.documents?.length > 0 ? c.documents.map(d => `http://localhost:8080${d}`).join(" | ") : "No documents"
+  ]);
+
+  const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "claims.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+
+// ---------------- Download PDF ----------------
+const downloadPDF = () => {
+  if (!displayedClaims.length) return alert("No claims to download");
+
+  const doc = new jsPDF();
+
+  // Prepare rows
+  const rows = displayedClaims.map(c => [
+    c.employeeName,
+    c.employeeIdDisplay,
+    c.title,
+    c.amount,
+    c.claimDate?.split("T")[0],
+    c.status,
+    c.policyName,
+    c.remarks || "-",
+    // Same as CSV: full URLs concatenated with " | "
+    c.documents?.length > 0
+  ? c.documents
+      .map(d => `http://localhost:8080/uploads/${encodeURIComponent(d.split('/').pop())}`)
+      .join(" | ")
+  : "No documents"
+
+  ]);
+
+  doc.autoTable({
+    head: [[
+      "Employee Name", "Employee ID", "Type", "Amount", "Date",
+      "Status", "Policy", "Remarks", "Documents"
+    ]],
+    body: rows,
+    startY: 20,
+    theme: "striped",
+    headStyles: { fillColor: [33, 150, 243], textColor: 255 },
+    styles: {
+      fontSize: 9,
+      cellPadding: 3,
+      overflow: 'linebreak',
+      halign: 'center',
+      valign: 'middle'
+    },
+    columnStyles: {
+      0: { cellWidth: 20 },
+      1: { cellWidth: 20 },
+      2: { cellWidth: 15 },
+      3: { cellWidth: 15 },
+      4: { cellWidth: 20 },
+      5: { cellWidth: 20 },
+      6: { cellWidth: 30 },
+      7: { cellWidth: 20 },
+      8: { cellWidth: 25 }
+    },
+    margin: { left: 10, right: 5 }
+  });
+
+  doc.save("claims.pdf");
+};
+
+
+
+ 
 
 // Render content based on active tab
 const renderContent = () => {
   switch (activeTab) {
     case "home":
       return (
-        <div>
-          <h4 className="mb-4">HR Dashboard Overview</h4>
+        <div className="text-center">
+          <h4 className="mb-4 fw-bold">HR Dashboard Overview</h4>
 
+          {/* Dashboard Stats */}
           <div className="row mb-4">
             <div className="col-md-3 mb-3">
-              <div className="card bg-primary text-white">
-                <div className="card-body">
+              <div className="card bg-primary text-white shadow-sm">
+                <div className="card-body d-flex flex-column justify-content-center align-items-center">
                   <h5 className="card-title">Pending Claims</h5>
-                  <h2 className="card-text">{pendingClaims.filter(c => c.status === "Pending").length}</h2>
-                  <p><i className="bi bi-clock-history"></i> Require review</p>
+                  <h2 className="fw-bold">
+                    {pendingClaims.filter(c => c.status === "Pending").length}
+                  </h2>
+                  <p className="mb-0">
+                    <i className="bi bi-clock-history"></i> Require review
+                  </p>
                 </div>
               </div>
             </div>
             <div className="col-md-3 mb-3">
-              <div className="card bg-success text-white">
-                <div className="card-body">
+              <div className="card bg-success text-white shadow-sm">
+                <div className="card-body d-flex flex-column justify-content-center align-items-center">
                   <h5 className="card-title">Active Employees</h5>
-                  <h2 className="card-text">{employees.length}</h2>
-                  <p><i className="bi bi-people-fill"></i> With active policies</p>
+                  <h2 className="fw-bold">{employees.length}</h2>
+                  <p className="mb-0">
+                    <i className="bi bi-people-fill"></i> With active policies
+                  </p>
                 </div>
               </div>
             </div>
             <div className="col-md-3 mb-3">
-              <div className="card bg-warning text-white">
-                <div className="card-body">
+              <div className="card bg-warning text-white shadow-sm">
+                <div className="card-body d-flex flex-column justify-content-center align-items-center">
                   <h5 className="card-title">Fraud Alerts</h5>
-                  <h2 className="card-text">{fraudAlerts.filter(a => a.status !== "Resolved").length}</h2>
-                  <p><i className="bi bi-exclamation-triangle"></i> Need attention</p>
+                  <h2 className="fw-bold">
+                    {fraudAlerts.filter(a => a.status !== "Resolved").length}
+                  </h2>
+                  <p className="mb-0">
+                    <i className="bi bi-exclamation-triangle"></i> Need attention
+                  </p>
                 </div>
               </div>
             </div>
             <div className="col-md-3 mb-3">
-              <div className="card bg-info text-white">
-                <div className="card-body">
+              <div className="card bg-info text-white shadow-sm">
+                <div className="card-body d-flex flex-column justify-content-center align-items-center">
                   <h5 className="card-title">Policies Expiring</h5>
-                  <h2 className="card-text">3</h2>
-                  <p><i className="bi bi-calendar-x"></i> In next 30 days</p>
+                  <h2 className="fw-bold">3</h2>
+                  <p className="mb-0">
+                    <i className="bi bi-calendar-x"></i> In next 30 days
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Pending Claims preview */}
-          <div className="row">
-            <div className="col-md-6 mb-4">
-              <div className="card">
-                <div className="card-header bg-primary text-white">
-                  <h5 className="mb-0">Pending Claims</h5>
+          {/* Pending Claims Preview */}
+          <div className="row justify-content-center">
+            <div className="col-md-8 mb-4">
+              <div className="card shadow-sm">
+                <div className="card-header bg-primary text-white text-center">
+                  <h5 className="mb-0">Pending Claims Preview</h5>
                 </div>
                 <div className="card-body">
                   {pendingClaims.slice(0, 3).map(claim => (
-                    <div key={claim.id} className="d-flex justify-content-between align-items-center border-bottom py-2">
+                    <div
+                      key={claim.id}
+                      className="d-flex justify-content-between align-items-center border-bottom py-2 text-start"
+                    >
                       <div>
                         <h6 className="mb-0">{claim.employeeName}</h6>
-                        <small className="text-muted">{claim.title} • ${claim.amount}</small>
+                        <small className="text-muted">
+                          {claim.title} • ${claim.amount} • {claim.claimDate?.split("T")[0]} • {claim.policyName}
+                        </small>
+                        <p className="mb-0"><strong>Remarks:</strong> {claim.remarks || "-"}</p>
                       </div>
-                      <span className={`badge ${claim.status === 'Pending' ? 'bg-warning' : claim.status === 'Approved' ? 'bg-success' : 'bg-danger'}`}>
+                      <span
+                        className={`badge ${
+                          claim.status === "Pending"
+                            ? "bg-warning"
+                            : claim.status === "Approved"
+                            ? "bg-success"
+                            : "bg-danger"
+                        }`}
+                      >
                         {claim.status}
                       </span>
                     </div>
                   ))}
-                  <button className="btn btn-outline-primary mt-3 btn-sm" onClick={() => setActiveTab("claims")}>
+                  <button
+                    className="btn btn-outline-primary mt-3 btn-sm"
+                    onClick={() => setActiveTab("claims")}
+                  >
                     View All Claims
                   </button>
                 </div>
@@ -287,86 +487,230 @@ const renderContent = () => {
         </div>
       );
 
-    case "claims":
-      return (
-        <div>
-          <h4 className="mb-4">Claim Approval Management</h4>
+case "claims":
+  return (
+    <div className="text-center">
+      <h4 className="mb-4 fw-bold">Claim Approval Management</h4>
 
-          {/* All Claims Table */}
-          <div className="card">
-            <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">All Claims</h5>
-              <span className="badge bg-light text-dark">{pendingClaims.filter(c => c.status === "Pending").length} Pending</span>
-            </div>
-            <div className="card-body">
-              <div className="table-responsive">
-                <table className="table table-striped">
-                  <thead>
-                    <tr>
-                      <th>Employee Name</th>
-                      <th>Employee ID</th>
-                      <th>Claim Type</th>
-                      <th>Amount</th>
-                      <th>Date</th>
-                      <th>Status</th>
-                      <th>Actions</th>
-                      <th>Documents</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {mappedClaims.map(claim => (
-                      <tr key={claim.id}>
-                        <td>{claim.employeeName}</td>
-                        <td>{claim.employeeIdDisplay}</td>
-                        <td>{claim.title}</td>
-                        <td>${claim.amount}</td>
-                        <td>{claim.claimDate?.split("T")[0]}</td>
-                        <td>
-                          <span className={`badge ${claim.status === 'Pending' ? 'bg-warning' : claim.status === 'Approved' ? 'bg-success' : 'bg-danger'}`}>
-                            {claim.status}
-                          </span>
-                        </td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary me-1" onClick={() => alert("View feature coming soon")}>
-                            <i className="bi bi-eye"></i> View
+      {/* ---------------- Filter Tabs ---------------- */}
+      <div className="mb-3 d-flex justify-content-center gap-2">
+        {["All", "Pending", "Approved", "Rejected"].map(status => (
+          <button
+            key={status}
+            className={`btn btn-sm ${statusFilter === status ? "btn-primary" : "btn-outline-primary"}`}
+            onClick={() => setStatusFilter(status)}
+          >
+            {status}{" "}
+            {status === "Pending" && (
+              <span className="badge bg-light text-dark ms-1">
+                {pendingClaims.filter(c => c.status === "Pending").length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ---------------- Download Buttons ---------------- */}
+      <div className="mb-3 d-flex justify-content-center gap-2">
+        <button className="btn btn-sm btn-success" onClick={downloadCSV}>
+          <i className="bi bi-file-earmark-spreadsheet"></i> Download CSV
+        </button>
+        <button className="btn btn-sm btn-danger" onClick={downloadPDF}>
+          <i className="bi bi-file-earmark-pdf"></i> Download PDF
+        </button>
+      </div>
+
+      {/* ---------------- All Claims Table ---------------- */}
+      <div className="card shadow-sm">
+        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <h5 className="mb-0">All Claims</h5>
+          <span className="badge bg-light text-dark">
+            {pendingClaims.filter(c => c.status === "Pending").length} Pending
+          </span>
+        </div>
+        <div className="card-body">
+          <div className="table-responsive">
+            <table className="table table-striped table-bordered align-middle text-center">
+              <thead className="table-light">
+                <tr>
+                  <th>Employee Name</th>
+                  <th>Employee ID</th>
+                  <th>Claim Type</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Policy Name</th>
+                  <th style={{ width: "140px" }}>Documents</th>
+                  <th>Remarks</th>
+                  <th style={{ width: "220px" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedClaims.map(claim => (
+                  <tr key={claim.id}>
+                    <td>{claim.employeeName}</td>
+                    <td>{claim.employeeIdDisplay}</td>
+                    <td>{claim.title}</td>
+                    <td className="fw-bold">${claim.amount}</td>
+                    <td>{claim.claimDate?.split("T")[0]}</td>
+                    <td>
+                      <span className={`badge ${
+                        claim.status === "Pending"
+                          ? "bg-warning"
+                          : claim.status === "Approved"
+                          ? "bg-success"
+                          : "bg-danger"
+                      }`}>
+                        {claim.status}
+                      </span>
+                    </td>
+                    <td>{claim.policyName}</td>
+
+                    {/* Documents */}
+                    <td>
+                      {claim.documents?.length > 0 ? (
+                        <div className="d-flex flex-column gap-1">
+                          {claim.documents.map((doc, idx) => (
+                            <a
+                              key={idx}
+                              href={`http://localhost:8080${doc}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-sm btn-outline-secondary text-truncate"
+                              style={{ maxWidth: "120px" }}
+                              title={doc.split("/").pop()}
+                            >
+                              <i className="bi bi-file-earmark-text me-1"></i>
+                              Doc {idx + 1}
+                            </a>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-muted">No docs</span>
+                      )}
+                    </td>
+
+                    {/* Remarks */}
+                    <td>
+                      {claim.status === "Pending" && claim.canModify ? (
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Add remarks"
+                          value={claim.remarks || ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setMappedClaims(prev =>
+                              prev.map(c =>
+                                c.id === claim.id ? { ...c, remarks: value } : c
+                              )
+                            );
+                          }}
+                        />
+                      ) : (
+                        claim.remarks || "-"
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td>
+                      <button
+                        className="btn btn-sm btn-outline-primary me-1"
+                        onClick={() => openViewModal(claim)}
+                      >
+                        <i className="bi bi-eye"></i> View
+                      </button>
+                      {claim.status === "Pending" && claim.canModify && (
+                        <>
+                          <button
+                            className="btn btn-sm btn-outline-success me-1"
+                            onClick={() => {
+                              const latestRemarks = mappedClaims.find(c => c.id === claim.id)?.remarks || "";
+                              approveClaim(claim.id, latestRemarks);
+                            }}
+                          >
+                            <i className="bi bi-check"></i> Approve
                           </button>
-                          {claim.status === "Pending" && (
-                            <>
-                              <button className="btn btn-sm btn-outline-success me-1" onClick={() => approveClaim(claim.id)}>
-                                <i className="bi bi-check"></i> Approve
-                              </button>
-                              <button className="btn btn-sm btn-outline-danger" onClick={() => rejectClaim(claim.id)}>
-                                <i className="bi bi-x"></i> Reject
-                              </button>
-                            </>
-                          )}
-                        </td>
-                        <td>
-                          {claim.documents?.length > 0 ? (
-                            <ul className="mb-0">
-                              {claim.documents.map((doc, idx) => (
-                                <li key={idx}>
-                                  <a href={`http://localhost:8080${doc}`} target="_blank" rel="noopener noreferrer">
-                                    {doc.split("/").pop()}
-                                  </a>
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <span>No documents</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          <button
+                            className="btn btn-sm btn-outline-danger"
+                            onClick={() => {
+                              const latestRemarks = mappedClaims.find(c => c.id === claim.id)?.remarks || "";
+                              rejectClaim(claim.id, latestRemarks);
+                            }}
+                          >
+                            <i className="bi bi-x"></i> Reject
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* ------------------ View Claim Modal ------------------ */}
+      {viewingClaim && (
+        <div
+          className="modal show d-block"
+          tabIndex="-1"
+          role="dialog"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Claim Details #{viewingClaim.id}</h5>
+                <button type="button" className="btn-close" onClick={closeViewModal}></button>
+              </div>
+              <div className="modal-body text-start">
+                <p><strong>Employee Name:</strong> {viewingClaim.employeeName}</p>
+                <p><strong>Employee ID:</strong> {viewingClaim.employeeIdDisplay}</p>
+                <p><strong>Claim Type:</strong> {viewingClaim.title}</p>
+                <p><strong>Description:</strong> {viewingClaim.description}</p>
+                <p><strong>Amount:</strong> ${viewingClaim.amount}</p>
+                <p><strong>Date Submitted:</strong> {viewingClaim.claimDate?.split("T")[0]}</p>
+                <p><strong>Status:</strong> {viewingClaim.status}</p>
+                <p><strong>Policy Name:</strong> {viewingClaim.policyName}</p>
+                <p><strong>Remarks:</strong> {viewingClaim.remarks || "-"}</p>
+
+                {/* Documents */}
+                <div>
+                  <strong>Documents:</strong>
+                  {viewingClaim.documents?.length > 0 ? (
+                    <ul>
+                      {viewingClaim.documents.map((doc, idx) => (
+                        <li key={idx}>
+                          <a
+                            href={`http://localhost:8080${doc}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {doc.split("/").pop()}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p>No documents uploaded</p>
+                  )}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={closeViewModal}>Close</button>
               </div>
             </div>
           </div>
         </div>
-      );
-  
+      )}
+    </div>
+  );
 
+
+
+  
 
   
       
@@ -730,97 +1074,15 @@ case "employees":
           </div>
         );
       
-      case "reports":
-        return (
-          <div>
-            <h4 className="mb-4">Reports & Analytics</h4>
-            
-            <div className="row mb-4">
-              <div className="col-md-4 mb-3">
-                <div className="card">
-                  <div className="card-body text-center">
-                    <i className="bi bi-file-earmark-text fs-1 text-primary mb-3"></i>
-                    <h5>Monthly Claims Report</h5>
-                    <p>Summary of all claims processed this month</p>
-                    <button className="btn btn-outline-primary">Generate PDF</button>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4 mb-3">
-                <div className="card">
-                  <div className="card-body text-center">
-                    <i className="bi bi-graph-up fs-1 text-success mb-3"></i>
-                    <h5>Policy Usage Report</h5>
-                    <p>Usage trends across different policy types</p>
-                    <button className="btn btn-outline-success">Generate Excel</button>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-4 mb-3">
-                <div className="card">
-                  <div className="card-body text-center">
-                    <i className="bi bi-currency-dollar fs-1 text-warning mb-3"></i>
-                    <h5>Financial Report</h5>
-                    <p>Cost analysis and financial summaries</p>
-                    <button className="btn btn-outline-warning">Generate Report</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="card">
-              <div className="card-header bg-primary text-white">
-                <h5 className="mb-0">Report History</h5>
-              </div>
-              <div className="card-body">
-                <div className="table-responsive">
-                  <table className="table table-striped">
-                    <thead>
-                      <tr>
-                        <th>Report Name</th>
-                        <th>Generated On</th>
-                        <th>Type</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>October 2023 Claims Report</td>
-                        <td>2023-11-01</td>
-                        <td><span className="badge bg-primary">PDF</span></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary me-1">
-                            <i className="bi bi-download"></i> Download
-                          </button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>Q3 2023 Policy Usage</td>
-                        <td>2023-10-15</td>
-                        <td><span className="badge bg-success">Excel</span></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary me-1">
-                            <i className="bi bi-download"></i> Download
-                          </button>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td>Fraud Detection Summary</td>
-                        <td>2023-10-05</td>
-                        <td><span className="badge bg-info">CSV</span></td>
-                        <td>
-                          <button className="btn btn-sm btn-outline-primary me-1">
-                            <i className="bi bi-download"></i> Download
-                          </button>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
+
+         case "reports":
+  return (
+    <ReportsAnalytics 
+      mappedClaims={mappedClaims} 
+      policies={policies} 
+    />
+  );
+      
       
       case "notifications":
         return (

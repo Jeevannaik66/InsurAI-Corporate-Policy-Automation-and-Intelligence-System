@@ -1,6 +1,7 @@
 package com.insurai.insurai_backend.service;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +9,9 @@ import org.springframework.stereotype.Service;
 
 import com.insurai.insurai_backend.model.Claim;
 import com.insurai.insurai_backend.model.Employee;
+import com.insurai.insurai_backend.model.Hr;
 import com.insurai.insurai_backend.repository.ClaimRepository;
+import com.insurai.insurai_backend.service.HrService;
 
 @Service
 public class ClaimService {
@@ -16,8 +19,11 @@ public class ClaimService {
     @Autowired
     private ClaimRepository claimRepository;
 
+    @Autowired
+    private HrService hrService;
+
     /**
-     * Submit a new claim
+     * Submit a new claim with automatic HR assignment
      */
     public Claim submitClaim(Claim claim) throws Exception {
         // Validate claim amount against policy coverage
@@ -29,12 +35,27 @@ public class ClaimService {
         claim.setCreatedAt(LocalDateTime.now());
         claim.setUpdatedAt(LocalDateTime.now());
 
-        // Ensure claimDate is set
         if (claim.getClaimDate() == null) {
             claim.setClaimDate(LocalDateTime.now());
         }
 
+        // ---------------- Automatic HR assignment ----------------
+        List<Hr> activeHrs = hrService.getAllActiveHrs();
+        if (!activeHrs.isEmpty()) {
+            Hr selectedHr = activeHrs.stream()
+                    .min(Comparator.comparingInt(hr -> getPendingClaimCount(hr)))
+                    .orElse(null);
+            claim.setAssignedHr(selectedHr);
+        }
+
         return claimRepository.save(claim);
+    }
+
+    /**
+     * Get pending claim count for a specific HR
+     */
+    private int getPendingClaimCount(Hr hr) {
+        return claimRepository.countByAssignedHrAndStatus(hr, "Pending");
     }
 
     /**
@@ -104,6 +125,12 @@ public class ClaimService {
     public List<Claim> getClaimsByEmployeeIdAndStatus(String employeeId, String status) {
         return claimRepository.findByEmployee_EmployeeIdAndStatus(employeeId, status);
     }
+/**
+ * Get all claims assigned to a specific HR
+ */
+public List<Claim> getClaimsByAssignedHr(Long hrId) {
+    return claimRepository.findByAssignedHrId(hrId);
+}
 
     /**
      * Get claim by ID

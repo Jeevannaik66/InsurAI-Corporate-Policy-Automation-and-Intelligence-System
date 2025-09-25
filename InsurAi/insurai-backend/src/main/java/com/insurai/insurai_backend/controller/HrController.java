@@ -53,7 +53,8 @@ public class HrController {
         return ResponseEntity.ok(Map.of(
                 "token", token,
                 "role", "HR",
-                "name", hr.getName()
+                "name", hr.getName(),
+                "id", hr.getId()
         ));
     }
 
@@ -63,14 +64,19 @@ public class HrController {
         return ResponseEntity.ok(hrRepository.findAll());
     }
 
-    // ================= Get All Claims (DTO) =================
+    // ================= Get Claims Assigned to Logged-in HR =================
     @GetMapping("/claims")
-    public ResponseEntity<?> getAllClaims(@RequestHeader(value = "Authorization") String authHeader) {
+    public ResponseEntity<?> getAssignedClaims(@RequestHeader(value = "Authorization") String authHeader) {
         try {
             validateHrToken(authHeader);
+            String token = authHeader.substring(7).trim();
+            String hrEmail = jwtUtil.extractUsername(token);
 
-            List<Claim> claims = claimService.getAllClaims();
+            Hr hr = hrRepository.findByEmail(hrEmail)
+                    .orElseThrow(() -> new RuntimeException("HR not found"));
 
+            // Fetch only claims assigned to this HR
+            List<Claim> claims = claimService.getClaimsByAssignedHr(hr.getId());
             List<ClaimDTO> dtos = claims.stream()
                     .map(ClaimDTO::new)
                     .collect(Collectors.toList());
@@ -81,43 +87,50 @@ public class HrController {
         }
     }
 
-    // ================= Approve a Claim =================
-    @PostMapping("/claims/approve/{claimId}")
-    public ResponseEntity<?> approveClaim(
-            @PathVariable Long claimId,
-            @RequestHeader(value = "Authorization") String authHeader) {
-        try {
-            validateHrToken(authHeader);
+  // Approve a claim with remarks
+@PostMapping("/claims/approve/{claimId}")
+public ResponseEntity<?> approveClaim(
+        @PathVariable Long claimId,
+        @RequestBody Map<String, String> body,
+        @RequestHeader(value = "Authorization") String authHeader) {
+    try {
+        validateHrToken(authHeader);
 
-            Claim claim = claimService.getClaimById(claimId);
-            claim.setStatus("Approved");
-            claim.setUpdatedAt(LocalDateTime.now());
-            Claim updated = claimService.updateClaim(claim);
+        String remarks = body.get("remarks"); // <-- get from JSON body
+        Claim claim = claimService.getClaimById(claimId);
+        claim.setStatus("Approved");
+        claim.setRemarks(remarks);
+        claim.setUpdatedAt(LocalDateTime.now());
+        Claim updated = claimService.updateClaim(claim);
 
-            return ResponseEntity.ok(new ClaimDTO(updated));
-        } catch (Exception e) {
-            return ResponseEntity.status(400).body("Error approving claim: " + e.getMessage());
-        }
+        return ResponseEntity.ok(new ClaimDTO(updated));
+    } catch (Exception e) {
+        return ResponseEntity.status(400).body("Error approving claim: " + e.getMessage());
     }
+}
 
-    // ================= Reject a Claim =================
-    @PostMapping("/claims/reject/{claimId}")
-    public ResponseEntity<?> rejectClaim(
-            @PathVariable Long claimId,
-            @RequestHeader(value = "Authorization") String authHeader) {
-        try {
-            validateHrToken(authHeader);
+// Reject a claim with remarks
+@PostMapping("/claims/reject/{claimId}")
+public ResponseEntity<?> rejectClaim(
+        @PathVariable Long claimId,
+        @RequestBody Map<String, String> body,
+        @RequestHeader(value = "Authorization") String authHeader) {
+    try {
+        validateHrToken(authHeader);
 
-            Claim claim = claimService.getClaimById(claimId);
-            claim.setStatus("Rejected");
-            claim.setUpdatedAt(LocalDateTime.now());
-            Claim updated = claimService.updateClaim(claim);
+        String remarks = body.get("remarks"); // <-- get from JSON body
+        Claim claim = claimService.getClaimById(claimId);
+        claim.setStatus("Rejected");
+        claim.setRemarks(remarks);
+        claim.setUpdatedAt(LocalDateTime.now());
+        Claim updated = claimService.updateClaim(claim);
 
-            return ResponseEntity.ok(new ClaimDTO(updated));
-        } catch (Exception e) {
-            return ResponseEntity.status(400).body("Error rejecting claim: " + e.getMessage());
-        }
+        return ResponseEntity.ok(new ClaimDTO(updated));
+    } catch (Exception e) {
+        return ResponseEntity.status(400).body("Error rejecting claim: " + e.getMessage());
     }
+}
+
 
     // ================= Helper to validate HR token =================
     private void validateHrToken(String authHeader) {
@@ -144,7 +157,9 @@ public class HrController {
         private LocalDateTime updatedAt;
         private Long employeeId;
         private Long policyId;
+        private String policyName;  // <-- New field
         private List<String> documents;
+        private Long assignedHrId;
 
         public ClaimDTO(Claim claim) {
             this.id = claim.getId();
@@ -158,7 +173,9 @@ public class HrController {
             this.updatedAt = claim.getUpdatedAt();
             this.employeeId = (claim.getEmployee() != null) ? claim.getEmployee().getId() : null;
             this.policyId = (claim.getPolicy() != null) ? claim.getPolicy().getId() : null;
+            this.policyName = (claim.getPolicy() != null) ? claim.getPolicy().getPolicyName() : "N/A";
             this.documents = claim.getDocuments();
+            this.assignedHrId = (claim.getAssignedHr() != null) ? claim.getAssignedHr().getId() : null;
         }
 
         // Getters
@@ -173,6 +190,8 @@ public class HrController {
         public LocalDateTime getUpdatedAt() { return updatedAt; }
         public Long getEmployeeId() { return employeeId; }
         public Long getPolicyId() { return policyId; }
+        public String getPolicyName() { return policyName; }
         public List<String> getDocuments() { return documents; }
+        public Long getAssignedHrId() { return assignedHrId; }
     }
 }

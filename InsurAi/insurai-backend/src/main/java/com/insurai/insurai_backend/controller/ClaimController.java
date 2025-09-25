@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,10 +46,9 @@ public class ClaimController {
     @Autowired
     private JwtUtil jwtUtil;
 
-    // Local folder to store uploaded files
     private final String uploadDir = "C:/Users/Jeevan/Documents/InsurAi/insurai-backend/uploads/";
 
-    // ---------------- Employee submits a new claim ----------------
+    // -------------------- Submit Claim --------------------
     @PostMapping("")
     public ResponseEntity<?> submitClaim(
             @RequestHeader(value = "Authorization", required = false) String authHeader,
@@ -79,24 +79,15 @@ public class ClaimController {
             Policy policy = policyRepository.findById(policyId)
                     .orElseThrow(() -> new RuntimeException("Policy not found"));
 
-            // Handle file upload: Save files to disk and generate accessible URLs
-List<String> documentPaths = (documents != null) ?
-        documents.stream().map(file -> {
-            try {
-                Path filePath = Paths.get(uploadDir + file.getOriginalFilename());
-                Files.createDirectories(filePath.getParent());
-                Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-                // URL accessible by frontend
-                return "/uploads/" + file.getOriginalFilename();
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to store file " + file.getOriginalFilename(), e);
-            }
-        }).collect(Collectors.toList()) : List.of();
-
+            // Handle document uploads safely
+            List<String> documentPaths = (documents != null) ?
+                    documents.stream().map(file -> storeFile(file)).collect(Collectors.toList())
+                    : List.of();
 
             LocalDateTime claimDate = LocalDateTime.parse(date + "T00:00:00");
 
-            Claim claim = new Claim(title, description, amount, claimDate, employee, policy, documentPaths);
+            Claim claim = new Claim(title, description, amount, claimDate, employee, policy, null, documentPaths);
+
             Claim savedClaim = claimService.submitClaim(claim);
 
             return ResponseEntity.ok(new ClaimDTO(savedClaim));
@@ -106,7 +97,62 @@ List<String> documentPaths = (documents != null) ?
         }
     }
 
-    // ---------------- Employee views their submitted claims ----------------
+    // -------------------- Update Claim --------------------
+    @PostMapping("/update")
+    public ResponseEntity<?> updateClaim(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestParam Long claimId,
+            @RequestParam Long policyId,
+            @RequestParam String title,
+            @RequestParam String description,
+            @RequestParam Double amount,
+            @RequestParam String date,
+            @RequestParam(required = false) List<MultipartFile> documents
+    ) {
+        try {
+            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(403).body("Unauthorized: Missing token");
+            }
+            String token = authHeader.substring(7).trim();
+            String email = jwtUtil.extractEmail(token);
+            String role = jwtUtil.extractRole(token);
+            if (!"EMPLOYEE".equalsIgnoreCase(role)) {
+                return ResponseEntity.status(403).body("Unauthorized: Not an employee");
+            }
+
+            Employee employee = employeeRepository.findByEmail(email).orElse(null);
+            if (employee == null) {
+                return ResponseEntity.status(403).body("Unauthorized: Invalid token");
+            }
+
+            Claim claim = claimService.getClaimById(claimId);
+            if (claim == null || !claim.getEmployee().getId().equals(employee.getId())) {
+                return ResponseEntity.status(403).body("Unauthorized: Cannot edit this claim");
+            }
+
+            Policy policy = policyRepository.findById(policyId)
+                    .orElseThrow(() -> new RuntimeException("Policy not found"));
+
+            claim.setTitle(title);
+            claim.setDescription(description);
+            claim.setAmount(amount);
+            claim.setClaimDate(LocalDateTime.parse(date + "T00:00:00"));
+            claim.setPolicy(policy);
+
+            if (documents != null && !documents.isEmpty()) {
+                List<String> documentPaths = documents.stream().map(file -> storeFile(file)).collect(Collectors.toList());
+                claim.getDocuments().addAll(documentPaths);
+            }
+
+            Claim updatedClaim = claimService.updateClaim(claim);
+            return ResponseEntity.ok(new ClaimDTO(updatedClaim));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(400).body("Error updating claim: " + e.getMessage());
+        }
+    }
+
+    // -------------------- Get Employee Claims --------------------
     @GetMapping("")
     public ResponseEntity<?> getEmployeeClaims(
             @RequestHeader(value = "Authorization", required = false) String authHeader
@@ -132,75 +178,8 @@ List<String> documentPaths = (documents != null) ?
         List<ClaimDTO> claimDTOs = claims.stream().map(ClaimDTO::new).collect(Collectors.toList());
         return ResponseEntity.ok(claimDTOs);
     }
-// ---------------- Employee updates an existing claim ----------------
-@PostMapping("/update")
-public ResponseEntity<?> updateClaim(
-        @RequestHeader(value = "Authorization", required = false) String authHeader,
-        @RequestParam Long claimId,
-        @RequestParam Long policyId,
-        @RequestParam String title,
-        @RequestParam String description,
-        @RequestParam Double amount,
-        @RequestParam String date,
-        @RequestParam(required = false) List<MultipartFile> documents
-) {
-    try {
-        // Validate token
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            return ResponseEntity.status(403).body("Unauthorized: Missing token");
-        }
-        String token = authHeader.substring(7).trim();
-        String email = jwtUtil.extractEmail(token);
-        String role = jwtUtil.extractRole(token);
-        if (!"EMPLOYEE".equalsIgnoreCase(role)) {
-            return ResponseEntity.status(403).body("Unauthorized: Not an employee");
-        }
 
-        Employee employee = employeeRepository.findByEmail(email).orElse(null);
-        if (employee == null) {
-            return ResponseEntity.status(403).body("Unauthorized: Invalid token");
-        }
-
-        Claim claim = claimService.getClaimById(claimId);
-        if (claim == null || !claim.getEmployee().getId().equals(employee.getId())) {
-            return ResponseEntity.status(403).body("Unauthorized: Cannot edit this claim");
-        }
-
-        Policy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new RuntimeException("Policy not found"));
-
-        // Update claim details
-        claim.setTitle(title);
-        claim.setDescription(description);
-        claim.setAmount(amount);
-        claim.setClaimDate(LocalDateTime.parse(date + "T00:00:00"));
-        claim.setPolicy(policy);
-
-        // Handle new documents
-        if (documents != null && !documents.isEmpty()) {
-            List<String> documentPaths = documents.stream().map(file -> {
-                try {
-                    Path filePath = Paths.get(uploadDir + file.getOriginalFilename());
-                    Files.createDirectories(filePath.getParent());
-                    Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-                    return "/uploads/" + file.getOriginalFilename();
-                } catch (IOException e) {
-                    throw new RuntimeException("Failed to store file " + file.getOriginalFilename(), e);
-                }
-            }).collect(Collectors.toList());
-            // Append new documents
-            claim.getDocuments().addAll(documentPaths);
-        }
-
-        Claim updatedClaim = claimService.updateClaim(claim);
-        return ResponseEntity.ok(new ClaimDTO(updatedClaim));
-
-    } catch (Exception e) {
-        return ResponseEntity.status(400).body("Error updating claim: " + e.getMessage());
-    }
-}
-
-    // ---------------- HR/Admin views all claims ----------------
+    // -------------------- Get All Claims (for admin) --------------------
     @GetMapping("/all")
     public ResponseEntity<?> getAllClaims() {
         try {
@@ -212,7 +191,20 @@ public ResponseEntity<?> updateClaim(
         }
     }
 
-    // ---------------- DTO for Claim to avoid lazy-loading issues ----------------
+    // -------------------- Helper: Store file safely --------------------
+    private String storeFile(MultipartFile file) {
+        try {
+            String uniqueName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+            Path filePath = Paths.get(uploadDir + uniqueName);
+            Files.createDirectories(filePath.getParent());
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            return "/uploads/" + uniqueName;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to store file " + file.getOriginalFilename(), e);
+        }
+    }
+
+    // -------------------- Claim DTO --------------------
     public static class ClaimDTO {
         private Long id;
         private String title;
@@ -226,6 +218,7 @@ public ResponseEntity<?> updateClaim(
         private Long employeeId;
         private Long policyId;
         private List<String> documents;
+        private Long assignedHrId;
 
         public ClaimDTO(Claim claim) {
             this.id = claim.getId();
@@ -240,6 +233,7 @@ public ResponseEntity<?> updateClaim(
             this.employeeId = (claim.getEmployee() != null) ? claim.getEmployee().getId() : null;
             this.policyId = (claim.getPolicy() != null) ? claim.getPolicy().getId() : null;
             this.documents = claim.getDocuments();
+            this.assignedHrId = (claim.getAssignedHr() != null) ? claim.getAssignedHr().getId() : null;
         }
 
         // Getters
@@ -255,5 +249,6 @@ public ResponseEntity<?> updateClaim(
         public Long getEmployeeId() { return employeeId; }
         public Long getPolicyId() { return policyId; }
         public List<String> getDocuments() { return documents; }
+        public Long getAssignedHrId() { return assignedHrId; }
     }
 }

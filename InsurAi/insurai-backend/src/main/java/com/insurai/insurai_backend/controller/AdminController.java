@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.insurai.insurai_backend.config.JwtUtil;
 import com.insurai.insurai_backend.model.LoginRequest;
 import com.insurai.insurai_backend.model.RegisterRequest;
 import com.insurai.insurai_backend.service.AdminService;
@@ -25,6 +26,9 @@ public class AdminController {
     @Autowired
     private PolicyService policyService;
 
+    @Autowired
+    private JwtUtil jwtUtil;
+
     // -------------------- Admin Login --------------------
     @PostMapping("/login")
     public ResponseEntity<?> adminLogin(@RequestBody LoginRequest loginRequest) {
@@ -32,7 +36,8 @@ public class AdminController {
         String password = loginRequest.getPassword();
 
         if (adminService.validateAdmin(email, password)) {
-            String token = adminService.generateAdminToken(email);
+            // Generate real JWT token
+            String token = jwtUtil.generateToken(email, "ADMIN");
             return ResponseEntity.ok(new LoginResponse(
                     "Login successful",
                     adminService.getAdminName(email),
@@ -50,7 +55,7 @@ public class AdminController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody RegisterRequest registerRequest) {
 
-        if (!adminService.isAdmin(authHeader)) {
+        if (!isAdminJwt(authHeader)) {
             return ResponseEntity.status(403).body("Access denied. Please login as Admin.");
         }
 
@@ -64,12 +69,22 @@ public class AdminController {
             @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody RegisterRequest registerRequest) {
 
-        if (!adminService.isAdmin(authHeader)) {
+        if (!isAdminJwt(authHeader)) {
             return ResponseEntity.status(403).body("Access denied. Please login as Admin.");
         }
 
         adminService.registerHR(registerRequest);
         return ResponseEntity.ok("HR registered successfully");
+    }
+
+    // -------------------- JWT Validation Helper --------------------
+    private boolean isAdminJwt(String authHeader) {
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            String role = jwtUtil.extractRole(token);
+            return "ADMIN".equalsIgnoreCase(role);
+        }
+        return false;
     }
 
     // -------------------- Inner class for login response --------------------

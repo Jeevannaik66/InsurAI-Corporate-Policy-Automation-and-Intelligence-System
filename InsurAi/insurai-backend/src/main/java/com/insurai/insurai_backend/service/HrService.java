@@ -1,5 +1,6 @@
 package com.insurai.insurai_backend.service;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,5 +43,12 @@ public class HrService {
 
         Hr hr = optionalHr.get();
         return passwordEncoder.matches(rawPassword, hr.getPassword());
+    }
+
+    // -------------------- Get all active HRs --------------------
+    public List<Hr> getAllActiveHrs() {
+        // Assuming "active" HRs means those present in the database
+        // You can later add an "active" field in Hr entity if needed
+        return hrRepository.findAll();
     }
 }

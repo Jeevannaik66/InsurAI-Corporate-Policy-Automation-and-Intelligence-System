@@ -10,7 +10,6 @@ export default function HrLogin() {
   const navigate = useNavigate();
 
   const validateEmail = (email) => {
-    // Strict email regex
     const re = /^[a-zA-Z0-9._%+-]+@[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z]{2,})+$/;
     return re.test(email);
   };
@@ -18,11 +17,9 @@ export default function HrLogin() {
   const handleLogin = async (e) => {
     e.preventDefault();
 
-    // Reset previous errors
     setErrorEmail("");
     setErrorPassword("");
 
-    // Client-side email validation
     if (!validateEmail(email)) {
       setErrorEmail("⚠️ Please enter a valid email address (e.g., user@example.com).");
       return;
@@ -37,9 +34,8 @@ export default function HrLogin() {
 
       if (!res.ok) {
         const text = await res.text();
-
-        // Try parsing JSON if server sends structured error
         let serverError = text;
+
         try {
           const parsed = JSON.parse(text);
           if (parsed?.email) setErrorEmail(parsed.email);
@@ -53,16 +49,17 @@ export default function HrLogin() {
       }
 
       const data = await res.json();
+
+      // ✅ Store HR info including ID
       localStorage.setItem("token", data.token);
       localStorage.setItem("role", "hr");
       localStorage.setItem("name", data.name);
+      localStorage.setItem("id", data.id); // <--- this line ensures logged HR ID is saved
 
       navigate("/hr/dashboard");
     } catch (err) {
       console.error("HR Login error:", err);
-      if (!errorEmail && !errorPassword) {
-        setErrorPassword(err.message);
-      }
+      if (!errorEmail && !errorPassword) setErrorPassword(err.message);
     }
   };
 

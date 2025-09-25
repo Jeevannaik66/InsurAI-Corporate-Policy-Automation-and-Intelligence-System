@@ -35,7 +35,7 @@ public class SecurityConfig {
                 .requestMatchers("/employee/claims/**").hasRole("EMPLOYEE")
                 .requestMatchers("/employee/queries/**").hasRole("EMPLOYEE")
                 .requestMatchers("/uploads/**").permitAll()
-                .requestMatchers("/hr/claims").hasAnyRole("HR", "ADMIN")
+                .requestMatchers("/hr/claims").hasAnyRole("HR")
 
                 // Public endpoints
                 .requestMatchers(

@@ -27,10 +27,13 @@ export default function AdminLogin() {
       }
 
       const data = await res.json();
+
+      // Save JWT token and user info in localStorage
       localStorage.setItem("token", data.token);
-      localStorage.setItem("role", "admin");
+      localStorage.setItem("role", data.role.toLowerCase());
       localStorage.setItem("name", data.name);
 
+      // Redirect to admin dashboard
       navigate("/admin/dashboard");
     } catch (err) {
       setError(err.message || "Login failed");

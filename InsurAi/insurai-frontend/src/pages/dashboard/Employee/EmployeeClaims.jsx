@@ -28,22 +28,30 @@ export default function EmployeeClaims({
   }, [policies, selectedPolicyId]);
 
   // ------------------ Fetch employee claims ------------------
-  const fetchClaims = async () => {
-    const token = localStorage.getItem("token");
-    if (!token) return console.warn("Missing token, cannot fetch claims");
+ const fetchClaims = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) return console.warn("Missing token, cannot fetch claims");
 
-    try {
-      const res = await fetch("http://localhost:8080/employee/claims", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) throw new Error("Failed to fetch claims");
-      const data = await res.json();
-      setClaims(data);
-    } catch (error) {
-      console.error(error);
-      showNotificationAlert("Error fetching claims");
-    }
-  };
+  try {
+    const res = await fetch("http://localhost:8080/employee/claims", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch claims");
+    const data = await res.json();
+
+    // Map to ensure remarks exists
+    const mapped = data.map(claim => ({
+      ...claim,
+      remarks: claim.remarks || "No remarks yet"
+    }));
+
+    setClaims(mapped);
+  } catch (error) {
+    console.error(error);
+    showNotificationAlert("Error fetching claims");
+  }
+};
+
 
   useEffect(() => {
     if (activeTab === "claims") fetchClaims();
@@ -151,13 +159,14 @@ const renderClaimsList = () => (
                 <th>Amount</th>
                 <th>Submitted</th>
                 <th>Status</th>
+                <th>HR Remarks</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {claims.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-4">
+                  <td colSpan="8" className="text-center py-4">
                     <i className="bi bi-wallet2 display-4 text-muted"></i>
                     <p className="text-muted mt-2">No claims submitted yet</p>
                     <button className="btn btn-primary btn-sm" onClick={() => setActiveTab("newClaim")}>
@@ -182,6 +191,7 @@ const renderClaimsList = () => (
                         {claim.status}
                       </span>
                     </td>
+                    <td>{claim.remarks || "No remarks yet"}</td>
                     <td>
                       <button className="btn btn-sm btn-outline-primary me-1" onClick={() => openViewModal(claim)}>View</button>
                       {claim.status === 'Pending' && (
@@ -190,13 +200,13 @@ const renderClaimsList = () => (
                           onClick={() => {
                             // Prepare form for editing
                             setNewClaim({
-                              id: claim.id, // <-- essential for update
+                              id: claim.id,
                               type: claim.title,
                               amount: claim.amount,
                               date: claim.claimDate?.split("T")[0] || "",
                               description: claim.description,
-                              documents: [], // new uploads
-                              existingDocuments: claim.documents || [], // already uploaded
+                              documents: [],
+                              existingDocuments: claim.documents || [],
                             });
                             setSelectedPolicyId(String(claim.policyId));
                             setActiveTab("newClaim");
@@ -230,7 +240,7 @@ const renderClaimsList = () => (
               <p><strong>Amount:</strong> ${viewingClaim.amount}</p>
               <p><strong>Submitted On:</strong> {viewingClaim.createdAt?.split("T")[0]}</p>
               <p><strong>Status:</strong> {viewingClaim.status}</p>
-              <p><strong>Remarks:</strong> {viewingClaim.remarks || "None"}</p>
+              <p><strong>HR Remarks:</strong> {viewingClaim.remarks || "None"}</p>
 
               <div>
                 <strong>Documents:</strong>
@@ -256,6 +266,7 @@ const renderClaimsList = () => (
     )}
   </div>
 );
+
 
 
 
@@ -342,7 +353,7 @@ const renderNewClaimForm = () => {
                   value={newClaim.amount || ""}
                   onChange={(e) => setNewClaim((prev) => ({
                         ...prev,
-                        amount: e.target.value ? parseInt(e.target.value) : ""
+                  amount: e.target.value ? Number(e.target.value) : ""
                   }))}
                   min="0"
                   step="1"
