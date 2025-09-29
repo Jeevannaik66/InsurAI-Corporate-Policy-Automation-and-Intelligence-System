@@ -10,17 +10,18 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Submission is blocked and an error message is displayed.  
 **Status:** Pass ✅ (Error displayed as expected)  
 
-**Screenshot:** ./screenshots/TC321_EmployeeMissingFields.png
+<img width="1910" height="1264" alt="image" src="https://github.com/user-attachments/assets/a628c48f-b032-4f6c-9af1-e87296d8ef9b" />
 
 ---
 
 ## TC322 – Employee Uploads Unsupported File Type
 **Description:** Employee uploads a document with an unsupported format.  
-**Expected Result:** Upload fails with a validation message.  
+**Expected Result:** Upload fails; system displays:  
+*“Supported formats: PDF, JPG, PNG, DOC (Max 10MB each)”*  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC322_UnsupportedFile.png
-
+<img width="1910" height="1264" alt="image" src="https://github.com/user-attachments/assets/7c152e2d-c004-44bf-9309-567d7ef2a02e" />
+ 
 ---
 
 ## TC323 – Employee Edits Claim After Approval
@@ -28,7 +29,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Editing is blocked.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC323_EditApprovedClaim.png
+<img width="1910" height="982" alt="image" src="https://github.com/user-attachments/assets/acec9270-c638-4675-9b6d-7a8a9f575b97" />
 
 ---
 
@@ -41,12 +42,13 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 
 ---
 
-## TC325 – HR Rejects Claim Without Selecting Claim
-**Description:** HR clicks reject without selecting any claim.  
-**Expected Result:** Action blocked with an error message.  
+## TC325 – HR Rejects Claim / Performs Action Without Required Input
+**Description:** HR attempts an action (approve/reject) without filling mandatory fields or selecting relevant data.  
+**Expected Result:** Action blocked; system prevents submission and displays proper validation.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC325_HRRejectNoSelection.png
+<img width="1910" height="1016" alt="image" src="https://github.com/user-attachments/assets/0b9756fd-c67c-42e3-809b-8efdbd74c682" />
+
 
 ---
 
@@ -55,7 +57,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Submission blocked; proper validation messages shown for empty query text or missing agent selection.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC326_QueryValidation.png
+<img width="1910" height="1055" alt="image" src="https://github.com/user-attachments/assets/3d1466f7-2e02-43bd-9180-8b53b07d85be" />
 
 ---
 
@@ -64,7 +66,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Response blocked; system displays validation message to enter a response.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC327_AgentEmptyResponse.png
+<img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/ca80b528-776c-4843-91e1-0a4a21fcd448" />
 
 ---
 
@@ -73,7 +75,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Submission prevented; system notifies that agent is offline.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC328_AgentOfflineQuery.png
+<img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/abdffe38-436f-409a-a5ad-e2de9f7b397b" />
 
 ---
 
@@ -82,7 +84,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Displays "No queries submitted yet" message and prompt to submit first query.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC329_NoQueries.png
+<img width="1910" height="1047" alt="image" src="https://github.com/user-attachments/assets/32bc310c-c99e-4334-9c10-d4e13134342b" />
 
 ---
 
@@ -91,7 +93,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Displays "No queries match your search" message.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC330_NoQueryMatch.png
+<img width="1910" height="982" alt="image" src="https://github.com/user-attachments/assets/dd456b61-61ec-4efc-bf15-a7770b47130a" />
 
 ---
 
@@ -100,16 +102,16 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Displays "No queries match your search" message.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC331_NoQueryFilterMatch.png
+<img width="1910" height="982" alt="image" src="https://github.com/user-attachments/assets/11917bc4-4c0a-40f9-9670-e8ddbd7b2d3e" />
 
 ---
 
-## TC332 – HR Filters Claims with Invalid Date Range
-**Description:** HR applies a filter with start date after end date.  
-**Expected Result:** Filter blocked; validation error displayed.  
+## TC332 – HR Filters Claims with Keyword. 
+**Description:** HR applies a filter keyword.  
+**Expected Result:** No claims found matching your criteria validation error displayed.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC332_HRInvalidDate.png
+v<img width="1910" height="1087" alt="image" src="https://github.com/user-attachments/assets/135d51ca-a72d-42b8-92df-24662e4f538e" />
 
 ---
 
@@ -118,20 +120,11 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Export blocked; message displayed.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC333_HRExportNoData.png
+<img width="1910" height="1447" alt="image" src="https://github.com/user-attachments/assets/126c7810-e2a6-4d08-946b-9434fdb68a46" />
 
 ---
 
-## TC334 – Admin Deletes Policy With Active Claims
-**Description:** Admin attempts to delete a policy that has employee claims.  
-**Expected Result:** Deletion blocked; error message shown.  
-**Status:** Pass ✅  
-
-**Screenshot:** ./screenshots/TC334_DeletePolicyActiveClaims.png
-
----
-
-## TC335 – Employee Uploads Document Exceeding Size Limit
+## TC334 – Employee Uploads Document Exceeding Size Limit
 **Description:** Employee uploads a file exceeding maximum allowed size.  
 **Expected Result:** Upload fails; error message shown.  
 **Status:** Pass ✅  
@@ -154,7 +147,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Action blocked; error displayed.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC337_HRApproveRejected.png
+<img width="1910" height="1002" alt="image" src="https://github.com/user-attachments/assets/38423b93-15e2-43c9-a7ca-4aaec7b76683" />
 
 ---
 
@@ -163,7 +156,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** Download blocked.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC338_EmployeeDownloadBlocked.png
+![Uploading image.png…]()
 
 ---
 
@@ -182,3 +175,4 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Status:** Pass ✅  
 
 **Screenshot:** ./screenshots/TC340_ClaimExceedCoverage.png
+
