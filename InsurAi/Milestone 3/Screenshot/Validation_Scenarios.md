@@ -50,57 +50,57 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 
 ---
 
-## TC326 – Agent Responds Without Message
-**Description:** Agent submits a query response with empty message field.  
-**Expected Result:** Response not allowed; error displayed.  
+## TC326 – Employee Submits Query Without Selecting Agent
+**Description:** Employee tries to submit a support query without selecting an agent or entering a query.  
+**Expected Result:** Submission blocked; proper validation messages shown for empty query text or missing agent selection.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC326_AgentEmptyResponse.png
+**Screenshot:** ./screenshots/TC326_QueryValidation.png
 
 ---
 
-## TC327 – Agent Responds to Offline Employee Query
-**Description:** Agent tries to respond to a query assigned to an offline employee.  
-**Expected Result:** System prevents response.  
+## TC327 – Agent Responds Without Message
+**Description:** Agent attempts to respond to a query with an empty message field.  
+**Expected Result:** Response blocked; system displays validation message to enter a response.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC327_AgentOfflineQuery.png
+**Screenshot:** ./screenshots/TC327_AgentEmptyResponse.png
 
 ---
 
-## TC328 – Employee Submits Claim for Inactive Policy
-**Description:** Employee selects a policy marked inactive.  
-**Expected Result:** Submission blocked.  
+## TC328 – Employee Submits Query to Offline Agent
+**Description:** Employee tries to submit a query to an agent who is currently offline.  
+**Expected Result:** Submission prevented; system notifies that agent is offline.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC328_InactivePolicy.png
+**Screenshot:** ./screenshots/TC328_AgentOfflineQuery.png
 
 ---
 
-## TC329 – Admin Creates Policy Without Document
-**Description:** Admin attempts to create a policy without uploading required document.  
-**Expected Result:** Creation blocked; error displayed.  
+## TC329 – Employee Views Queries When None Submitted
+**Description:** Employee opens "My Queries" tab without having submitted any queries.  
+**Expected Result:** Displays "No queries submitted yet" message and prompt to submit first query.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC329_AdminPolicyNoDoc.png
+**Screenshot:** ./screenshots/TC329_NoQueries.png
 
 ---
 
-## TC330 – Employee Asks Query Without Selecting Agent
-**Description:** Employee sends query without selecting an agent.  
-**Expected Result:** Submission blocked; validation message shown.  
+## TC330 – Employee Searches Queries With No Matches
+**Description:** Employee searches queries using a keyword that does not match any existing query.  
+**Expected Result:** Displays "No queries match your search" message.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC330_QueryNoAgent.png
+**Screenshot:** ./screenshots/TC330_NoQueryMatch.png
 
 ---
 
-## TC331 – Employee Views Claims When None Submitted
-**Description:** Employee opens "My Claims" with no claims submitted yet.  
-**Expected Result:** Displays "No claims submitted" message.  
+## TC331 – Employee Filters Queries by Status With No Matching Queries
+**Description:** Employee applies a status filter (answered/pending) when no queries match the filter.  
+**Expected Result:** Displays "No queries match your search" message.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC331_NoClaims.png
+**Screenshot:** ./screenshots/TC331_NoQueryFilterMatch.png
 
 ---
 
@@ -182,4 +182,3 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Status:** Pass ✅  
 
 **Screenshot:** ./screenshots/TC340_ClaimExceedCoverage.png
-
