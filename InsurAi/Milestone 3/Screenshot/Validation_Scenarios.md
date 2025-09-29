@@ -37,7 +37,7 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Expected Result:** System prompts for mandatory remarks.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC324_HRApproveNoRemarks.png
+<img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/c2206328-9dbf-4e32-9bf2-f75f564ff390" />
 
 ---
 
@@ -182,3 +182,4 @@ Each test confirms that the system correctly handles errors, prevents invalid ac
 **Status:** Pass ✅  
 
 **Screenshot:** ./screenshots/TC340_ClaimExceedCoverage.png
+
