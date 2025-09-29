@@ -126,23 +126,14 @@ v<img width="1910" height="1087" alt="image" src="https://github.com/user-attach
 
 ## TC334 – Employee Uploads Document Exceeding Size Limit
 **Description:** Employee uploads a file exceeding maximum allowed size.  
-**Expected Result:** Upload fails; error message shown.  
+**Expected Result:** Upload fails.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC335_FileSizeExceed.png
+<img width="1910" height="1264" alt="image" src="https://github.com/user-attachments/assets/bc229e51-962a-4a85-8f32-854dc442b5c8" />
 
 ---
 
-## TC336 – Agent Updates Query Status Without Selecting Query
-**Description:** Agent clicks update status without selecting a query.  
-**Expected Result:** Update blocked; error message displayed.  
-**Status:** Pass ✅  
-
-**Screenshot:** ./screenshots/TC336_AgentUpdateNoQuery.png
-
----
-
-## TC337 – HR Approves Already Rejected Claim
+## TC335 – HR Approves Already Rejected Claim
 **Description:** HR tries to approve a claim that was previously rejected.  
 **Expected Result:** Action blocked; error displayed.  
 **Status:** Pass ✅  
@@ -151,28 +142,20 @@ v<img width="1910" height="1087" alt="image" src="https://github.com/user-attach
 
 ---
 
-## TC338 – Employee Downloads Policy PDF When Not Assigned
+## TC336 – Employee Downloads Policy PDF When Not Assigned
 **Description:** Employee tries to download a PDF for a policy not assigned to them.  
 **Expected Result:** Download blocked.  
 **Status:** Pass ✅  
 
-![Uploading image.png…]()
+<img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/c4ff9ebf-016c-4dd7-82f4-87bef3d1a5e6" />
 
 ---
 
-## TC339 – Admin Creates Policy With Invalid Coverage Amount
-**Description:** Admin enters negative or non-numeric coverage amount.  
-**Expected Result:** Creation blocked; validation error displayed.  
-**Status:** Pass ✅  
-
-**Screenshot:** ./screenshots/TC339_AdminInvalidCoverage.png
-
----
-
-## TC340 – Employee Submits Claim Exceeding Policy Coverage
+## TC337 – Employee Submits Claim Exceeding Policy Coverage
 **Description:** Employee submits claim with amount greater than policy coverage.  
 **Expected Result:** Submission blocked; error message shown.  
 **Status:** Pass ✅  
 
-**Screenshot:** ./screenshots/TC340_ClaimExceedCoverage.png
+<img width="1910" height="981" alt="image" src="https://github.com/user-attachments/assets/b8265b10-0755-47cf-a347-af35a038176d" />
+
 
