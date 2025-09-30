@@ -6,7 +6,9 @@ import "../Dashboard.css";
 import jsPDF from "jspdf";
 import "jspdf-autotable"; // just import it, no variable needed
 import ReportsAnalytics from "./ReportsAnalytics"; // adjust path if needed
-
+import HRClaims from "./HRClaims";
+import HRPolicies from "./HRPolicies";
+import HREmployees from "./HREmployees"; 
 
 export default function HRDashboard() {
   const navigate = useNavigate();
@@ -385,595 +387,409 @@ const downloadPDF = () => {
 const renderContent = () => {
   switch (activeTab) {
     case "home":
-      return (
-        <div className="text-center">
-          <h4 className="mb-4 fw-bold">HR Dashboard Overview</h4>
+      // Enhanced Home Page Content
+      const pendingClaimsCount = pendingClaims.filter(c => c.status === "Pending").length;
+      const approvedClaimsCount = pendingClaims.filter(c => c.status === "Approved").length;
+      const rejectedClaimsCount = pendingClaims.filter(c => c.status === "Rejected").length;
+      const totalClaimsAmount = pendingClaims.reduce((sum, claim) => sum + (parseFloat(claim.amount) || 0), 0);
+      const pendingClaimsAmount = pendingClaims
+        .filter(c => c.status === "Pending")
+        .reduce((sum, claim) => sum + (parseFloat(claim.amount) || 0), 0);
 
-          {/* Dashboard Stats */}
+      const activePolicies = policies.filter(p => p.policyStatus === "Active").length;
+      const expiringPolicies = policies.filter(policy => {
+        if (!policy.renewalDate) return false;
+        try {
+          const renewalDate = new Date(policy.renewalDate);
+          const daysUntilRenewal = Math.ceil((renewalDate - new Date()) / (1000 * 60 * 60 * 24));
+          return daysUntilRenewal <= 30 && daysUntilRenewal > 0;
+        } catch {
+          return false;
+        }
+      }).length;
+
+      const activeEmployees = employees.filter(emp => emp.active).length;
+      const inactiveEmployees = employees.length - activeEmployees;
+      const recentClaims = pendingClaims.slice(0, 5);
+
+      return (
+        <div className="container-fluid">
+          {/* Header */}
           <div className="row mb-4">
-            <div className="col-md-3 mb-3">
-              <div className="card bg-primary text-white shadow-sm">
-                <div className="card-body d-flex flex-column justify-content-center align-items-center">
-                  <h5 className="card-title">Pending Claims</h5>
-                  <h2 className="fw-bold">
-                    {pendingClaims.filter(c => c.status === "Pending").length}
-                  </h2>
-                  <p className="mb-0">
-                    <i className="bi bi-clock-history"></i> Require review
-                  </p>
-                </div>
+            <div className="col-12 d-flex justify-content-between align-items-center">
+              <div>
+                <h4 className="fw-bold mb-1">HR Dashboard Overview</h4>
+                <p className="text-muted mb-0">Welcome back! Here's your insurance management summary</p>
               </div>
-            </div>
-            <div className="col-md-3 mb-3">
-              <div className="card bg-success text-white shadow-sm">
-                <div className="card-body d-flex flex-column justify-content-center align-items-center">
-                  <h5 className="card-title">Active Employees</h5>
-                  <h2 className="fw-bold">{employees.length}</h2>
-                  <p className="mb-0">
-                    <i className="bi bi-people-fill"></i> With active policies
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3 mb-3">
-              <div className="card bg-warning text-white shadow-sm">
-                <div className="card-body d-flex flex-column justify-content-center align-items-center">
-                  <h5 className="card-title">Fraud Alerts</h5>
-                  <h2 className="fw-bold">
-                    {fraudAlerts.filter(a => a.status !== "Resolved").length}
-                  </h2>
-                  <p className="mb-0">
-                    <i className="bi bi-exclamation-triangle"></i> Need attention
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="col-md-3 mb-3">
-              <div className="card bg-info text-white shadow-sm">
-                <div className="card-body d-flex flex-column justify-content-center align-items-center">
-                  <h5 className="card-title">Policies Expiring</h5>
-                  <h2 className="fw-bold">3</h2>
-                  <p className="mb-0">
-                    <i className="bi bi-calendar-x"></i> In next 30 days
-                  </p>
+              <div className="text-end">
+                <div className="badge bg-light text-dark p-2">
+                  <i className="bi bi-calendar me-1"></i>
+                  {new Date().toLocaleDateString('en-IN')}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Pending Claims Preview */}
-          <div className="row justify-content-center">
-            <div className="col-md-8 mb-4">
-              <div className="card shadow-sm">
-                <div className="card-header bg-primary text-white text-center">
-                  <h5 className="mb-0">Pending Claims Preview</h5>
+          {/* Statistics Cards */}
+          <div className="row mb-4">
+            {/* Pending Claims */}
+            <div className="col-xl-2 col-md-4 col-6 mb-3">
+              <div className="card bg-warning bg-opacity-10 border-0 shadow-sm h-100 hover-shadow-lg">
+                <div className="card-body text-center">
+                  <i className="bi bi-clock-history text-warning fs-4 mb-2"></i>
+                  <h3 className="text-warning mb-1">{pendingClaimsCount}</h3>
+                  <small className="text-muted">Pending Claims</small>
+                  <div className="mt-2">
+                    <small className="text-warning">
+                      <i className="bi bi-exclamation-triangle"></i> Requires review
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Approved Claims */}
+            <div className="col-xl-2 col-md-4 col-6 mb-3">
+              <div className="card bg-success bg-opacity-10 border-0 shadow-sm h-100 hover-shadow-lg">
+                <div className="card-body text-center">
+                  <i className="bi bi-check-circle text-success fs-4 mb-2"></i>
+                  <h3 className="text-success mb-1">{approvedClaimsCount}</h3>
+                  <small className="text-muted">Approved Claims</small>
+                  <div className="mt-2">
+                    <small className="text-success">
+                      <i className="bi bi-check-lg"></i> Processed
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Employees */}
+            <div className="col-xl-2 col-md-4 col-6 mb-3">
+              <div className="card bg-primary bg-opacity-10 border-0 shadow-sm h-100 hover-shadow-lg">
+                <div className="card-body text-center">
+                  <i className="bi bi-people-fill text-primary fs-4 mb-2"></i>
+                  <h3 className="text-primary mb-1">{activeEmployees}</h3>
+                  <small className="text-muted">Active Employees</small>
+                  <div className="mt-2">
+                    <small className="text-primary">
+                      <i className="bi bi-person-check"></i> With policies
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Policies */}
+            <div className="col-xl-2 col-md-4 col-6 mb-3">
+              <div className="card bg-info bg-opacity-10 border-0 shadow-sm h-100 hover-shadow-lg">
+                <div className="card-body text-center">
+                  <i className="bi bi-shield-check text-info fs-4 mb-2"></i>
+                  <h3 className="text-info mb-1">{activePolicies}</h3>
+                  <small className="text-muted">Active Policies</small>
+                  <div className="mt-2">
+                    <small className="text-info">
+                      <i className="bi bi-file-earmark-text"></i> In force
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Pending Amount */}
+            <div className="col-xl-2 col-md-4 col-6 mb-3">
+              <div className="card bg-danger bg-opacity-10 border-0 shadow-sm h-100 hover-shadow-lg">
+                <div className="card-body text-center">
+                  <i className="bi bi-currency-rupee text-danger fs-4 mb-2"></i>
+                  <h3 className="text-danger mb-1">₹{(pendingClaimsAmount/1000).toFixed(0)}K</h3>
+                  <small className="text-muted">Pending Amount</small>
+                  <div className="mt-2">
+                    <small className="text-danger">
+                      <i className="bi bi-graph-up"></i> Under review
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Expiring Policies */}
+            <div className="col-xl-2 col-md-4 col-6 mb-3">
+              <div className="card bg-secondary bg-opacity-10 border-0 shadow-sm h-100 hover-shadow-lg">
+                <div className="card-body text-center">
+                  <i className="bi bi-calendar-x text-secondary fs-4 mb-2"></i>
+                  <h3 className="text-secondary mb-1">{expiringPolicies}</h3>
+                  <small className="text-muted">Renewing Soon</small>
+                  <div className="mt-2">
+                    <small className="text-secondary">
+                      <i className="bi bi-clock"></i> In 30 days
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Actions */}
+          <div className="row mb-4">
+            <div className="col-12">
+              <div className="card shadow-sm border-0">
+                <div className="card-header bg-light border-0">
+                  <h5 className="card-title mb-0">
+                    <i className="bi bi-lightning-fill text-warning me-2"></i>
+                    Quick Actions
+                  </h5>
                 </div>
                 <div className="card-body">
-                  {pendingClaims.slice(0, 3).map(claim => (
-                    <div
-                      key={claim.id}
-                      className="d-flex justify-content-between align-items-center border-bottom py-2 text-start"
-                    >
-                      <div>
-                        <h6 className="mb-0">{claim.employeeName}</h6>
-                        <small className="text-muted">
-                          {claim.title} • ${claim.amount} • {claim.claimDate?.split("T")[0]} • {claim.policyName}
-                        </small>
-                        <p className="mb-0"><strong>Remarks:</strong> {claim.remarks || "-"}</p>
-                      </div>
-                      <span
-                        className={`badge ${
-                          claim.status === "Pending"
-                            ? "bg-warning"
-                            : claim.status === "Approved"
-                            ? "bg-success"
-                            : "bg-danger"
-                        }`}
-                      >
-                        {claim.status}
+                  <div className="row g-3">
+                    <div className="col-xl-2 col-md-4 col-6">
+                      <button className="btn btn-primary w-100 h-100 py-3 d-flex flex-column align-items-center hover-scale" onClick={() => setActiveTab("claims")}>
+                        <i className="bi bi-list-check fs-3 mb-2"></i>
+                        <span>Manage Claims</span>
+                        <small className="text-white opacity-75 mt-1">{pendingClaimsCount} pending</small>
+                      </button>
+                    </div>
+                    <div className="col-xl-2 col-md-4 col-6">
+                      <button className="btn btn-success w-100 h-100 py-3 d-flex flex-column align-items-center hover-scale" onClick={() => setActiveTab("policies")}>
+                        <i className="bi bi-shield-check fs-3 mb-2"></i>
+                        <span>View Policies</span>
+                        <small className="text-white opacity-75 mt-1">{activePolicies} active</small>
+                      </button>
+                    </div>
+                    <div className="col-xl-2 col-md-4 col-6">
+                      <button className="btn btn-info w-100 h-100 py-3 d-flex flex-column align-items-center hover-scale" onClick={() => setActiveTab("reports")}>
+                        <i className="bi bi-graph-up fs-3 mb-2"></i>
+                        <span>Analytics</span>
+                        <small className="text-white opacity-75 mt-1">View reports</small>
+                      </button>
+                    </div>
+                    <div className="col-xl-2 col-md-4 col-6">
+                      <button className="btn btn-warning w-100 h-100 py-3 d-flex flex-column align-items-center hover-scale" onClick={downloadCSV}>
+                        <i className="bi bi-file-earmark-spreadsheet fs-3 mb-2"></i>
+                        <span>Export CSV</span>
+                        <small className="text-white opacity-75 mt-1">Claim data</small>
+                      </button>
+                    </div>
+                    <div className="col-xl-2 col-md-4 col-6">
+                      <button className="btn btn-danger w-100 h-100 py-3 d-flex flex-column align-items-center hover-scale" onClick={downloadPDF}>
+                        <i className="bi bi-file-earmark-pdf fs-3 mb-2"></i>
+                        <span>Export PDF</span>
+                        <small className="text-white opacity-75 mt-1">Reports</small>
+                      </button>
+                    </div>
+                    <div className="col-xl-2 col-md-4 col-6">
+                      <button className="btn btn-secondary w-100 h-100 py-3 d-flex flex-column align-items-center hover-scale" onClick={() => setActiveTab("employees")}>
+                        <i className="bi bi-people fs-3 mb-2"></i>
+                        <span>Employees</span>
+                        <small className="text-white opacity-75 mt-1">{activeEmployees} active</small>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+ {/* Recent Claims */}
+<div className="row">
+  <div className="col-xl-8 mb-4">
+    <div className="card shadow-sm border-0 h-100">
+      <div className="card-header bg-gradient-primary text-white border-0 d-flex justify-content-between align-items-center">
+        <h5 className="card-title mb-0">
+          <i className="bi bi-clock-history me-2"></i>
+          Recent Pending Claims
+        </h5>
+        <span className="badge bg-light text-dark">{pendingClaimsCount} pending • ₹{pendingClaimsAmount.toLocaleString('en-IN')}</span>
+      </div>
+      <div className="card-body">
+        {mappedClaims.length > 0 ? (
+          <>
+            {mappedClaims.slice(0, 5).map((claim, index) => (
+              <div key={claim.id} className={`d-flex justify-content-between align-items-center p-3 ${index !== mappedClaims.slice(0,5).length - 1 ? 'border-bottom' : ''}`}>
+                <div className="d-flex align-items-center flex-grow-1">
+                  <div className="bg-warning bg-opacity-10 rounded-circle p-2 me-3">
+                    <i className="bi bi-person-circle text-warning"></i>
+                  </div>
+                  <div className="flex-grow-1">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <h6 className="mb-1">{claim.employeeName || "Unknown Employee"}</h6>
+                      <span className={`badge ${claim.status === "Pending" ? "bg-warning" : claim.status === "Approved" ? "bg-success" : "bg-danger"}`}>
+                        {claim.status || "Pending"}
                       </span>
                     </div>
-                  ))}
-                  <button
-                    className="btn btn-outline-primary mt-3 btn-sm"
-                    onClick={() => setActiveTab("claims")}
-                  >
-                    View All Claims
+                    <small className="text-muted d-block">
+                      {claim.title || "Untitled"} • ₹{claim.amount || 0} • {claim.claimDate?.split("T")[0] || "N/A"}
+                    </small>
+                    <small className="d-block">
+                      <strong>Policy:</strong> {claim.policyName || "N/A"} • 
+                      <strong> Remarks:</strong> {claim.remarks || "No remarks"}
+                    </small>
+                  </div>
+                </div>
+                <div className="text-end ms-3">
+                  <button className="btn btn-sm btn-outline-primary" onClick={() => { openViewModal(claim); setActiveTab("claims"); }}>
+                    Review
                   </button>
                 </div>
               </div>
+            ))}
+            <div className="text-center mt-3">
+              <button className="btn btn-primary" onClick={() => setActiveTab("claims")}>
+                <i className="bi bi-arrow-right me-2"></i>View All Claims
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <i className="bi bi-check-circle display-4 text-success"></i>
+            <p className="text-muted mt-3">No pending claims! Great work!</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+
+
+            {/* Right Sidebar - Metrics & Alerts */}
+            <div className="col-xl-4 mb-4">
+              {/* Performance Metrics */}
+              <div className="card shadow-sm border-0 mb-4">
+                <div className="card-header bg-light border-0">
+                  <h5 className="card-title mb-0">
+                    <i className="bi bi-graph-up me-2"></i>
+                    Performance Metrics
+                  </h5>
+                </div>
+                <div className="card-body">
+                  <div className="mb-3">
+                    <div className="d-flex justify-content-between mb-1">
+                      <span>Claim Approval Rate</span>
+                      <strong className="text-success">{pendingClaims.length > 0 ? Math.round((approvedClaimsCount / pendingClaims.length) * 100) : 0}%</strong>
+                    </div>
+                    <div className="progress" style={{height: '8px'}}>
+                      <div className="progress-bar bg-success" style={{width: `${pendingClaims.length > 0 ? Math.round((approvedClaimsCount / pendingClaims.length) * 100) : 0}%`}}></div>
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <div className="d-flex justify-content-between mb-1">
+                      <span>Average Processing Time</span>
+                      <strong className="text-info">2.3 days</strong>
+                    </div>
+                    <div className="progress" style={{height: '8px'}}>
+                      <div className="progress-bar bg-info" style={{width: '75%'}}></div>
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <div className="d-flex justify-content-between mb-1">
+                      <span>Policy Coverage Rate</span>
+                      <strong className="text-warning">{employees.length > 0 ? Math.round((activeEmployees / employees.length) * 100) : 0}%</strong>
+                    </div>
+                    <div className="progress" style={{height: '8px'}}>
+                      <div className="progress-bar bg-warning" style={{width: `${employees.length > 0 ? Math.round((activeEmployees / employees.length) * 100) : 0}%`}}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* System Alerts */}
+              <div className="card shadow-sm border-0">
+                <div className="card-header bg-light border-0">
+                  <h5 className="card-title mb-0">
+                    <i className="bi bi-bell me-2"></i>
+                    System Alerts
+                  </h5>
+                </div>
+                <div className="card-body">
+                  {expiringPolicies > 0 && (
+                    <div className="alert alert-warning d-flex align-items-center">
+                      <i className="bi bi-exclamation-triangle me-2 fs-5"></i>
+                      <div>
+                        <strong>{expiringPolicies} policies</strong> expiring soon
+                        <br />
+                        <small>Review and renew policies</small>
+                      </div>
+                    </div>
+                  )}
+
+                  {pendingClaimsCount > 10 && (
+                    <div className="alert alert-info d-flex align-items-center">
+                      <i className="bi bi-info-circle me-2 fs-5"></i>
+                      <div>
+                        <strong>High claim volume</strong>
+                        <br />
+                        <small>{pendingClaimsCount} claims awaiting review</small>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="alert alert-success d-flex align-items-center">
+                    <i className="bi bi-check-circle me-2 fs-5"></i>
+                    <div>
+                      <strong>All systems operational</strong>
+                      <br />
+                      <small>Last updated: {new Date().toLocaleTimeString('en-IN')}</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <style>{`
+            .hover-shadow-lg:hover {
+              box-shadow: 0 1rem 3rem rgba(0,0,0,.175) !important;
+              transform: translateY(-2px);
+              transition: all 0.3s ease;
+            }
+            .hover-scale:hover {
+              transform: scale(1.05);
+              transition: all 0.3s ease;
+            }
+          `}</style>
         </div>
       );
 
+
 case "claims":
   return (
-    <div className="text-center">
-      <h4 className="mb-4 fw-bold">Claim Approval Management</h4>
-
-      {/* ---------------- Filter Tabs ---------------- */}
-      <div className="mb-3 d-flex justify-content-center gap-2">
-        {["All", "Pending", "Approved", "Rejected"].map(status => (
-          <button
-            key={status}
-            className={`btn btn-sm ${statusFilter === status ? "btn-primary" : "btn-outline-primary"}`}
-            onClick={() => setStatusFilter(status)}
-          >
-            {status}{" "}
-            {status === "Pending" && (
-              <span className="badge bg-light text-dark ms-1">
-                {pendingClaims.filter(c => c.status === "Pending").length}
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* ---------------- Download Buttons ---------------- */}
-      <div className="mb-3 d-flex justify-content-center gap-2">
-        <button className="btn btn-sm btn-success" onClick={downloadCSV}>
-          <i className="bi bi-file-earmark-spreadsheet"></i> Download CSV
-        </button>
-        <button className="btn btn-sm btn-danger" onClick={downloadPDF}>
-          <i className="bi bi-file-earmark-pdf"></i> Download PDF
-        </button>
-      </div>
-
-      {/* ---------------- All Claims Table ---------------- */}
-      <div className="card shadow-sm">
-        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">All Claims</h5>
-          <span className="badge bg-light text-dark">
-            {pendingClaims.filter(c => c.status === "Pending").length} Pending
-          </span>
-        </div>
-        <div className="card-body">
-          <div className="table-responsive">
-            <table className="table table-striped table-bordered align-middle text-center">
-              <thead className="table-light">
-                <tr>
-                  <th>Employee Name</th>
-                  <th>Employee ID</th>
-                  <th>Claim Type</th>
-                  <th>Amount</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Policy Name</th>
-                  <th style={{ width: "140px" }}>Documents</th>
-                  <th>Remarks</th>
-                  <th style={{ width: "220px" }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedClaims.map(claim => (
-                  <tr key={claim.id}>
-                    <td>{claim.employeeName}</td>
-                    <td>{claim.employeeIdDisplay}</td>
-                    <td>{claim.title}</td>
-                    <td className="fw-bold">${claim.amount}</td>
-                    <td>{claim.claimDate?.split("T")[0]}</td>
-                    <td>
-                      <span className={`badge ${
-                        claim.status === "Pending"
-                          ? "bg-warning"
-                          : claim.status === "Approved"
-                          ? "bg-success"
-                          : "bg-danger"
-                      }`}>
-                        {claim.status}
-                      </span>
-                    </td>
-                    <td>{claim.policyName}</td>
-
-                    {/* Documents */}
-                    <td>
-                      {claim.documents?.length > 0 ? (
-                        <div className="d-flex flex-column gap-1">
-                          {claim.documents.map((doc, idx) => (
-                            <a
-                              key={idx}
-                              href={`http://localhost:8080${doc}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="btn btn-sm btn-outline-secondary text-truncate"
-                              style={{ maxWidth: "120px" }}
-                              title={doc.split("/").pop()}
-                            >
-                              <i className="bi bi-file-earmark-text me-1"></i>
-                              Doc {idx + 1}
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted">No docs</span>
-                      )}
-                    </td>
-
-                    {/* Remarks */}
-                    <td>
-                      {claim.status === "Pending" && claim.canModify ? (
-                        <input
-                          type="text"
-                          className="form-control form-control-sm"
-                          placeholder="Add remarks"
-                          value={claim.remarks || ""}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setMappedClaims(prev =>
-                              prev.map(c =>
-                                c.id === claim.id ? { ...c, remarks: value } : c
-                              )
-                            );
-                          }}
-                        />
-                      ) : (
-                        claim.remarks || "-"
-                      )}
-                    </td>
-
-                    {/* Actions */}
-                    <td>
-                      <button
-                        className="btn btn-sm btn-outline-primary me-1"
-                        onClick={() => openViewModal(claim)}
-                      >
-                        <i className="bi bi-eye"></i> View
-                      </button>
-                      {claim.status === "Pending" && claim.canModify && (
-                        <>
-                          <button
-                            className="btn btn-sm btn-outline-success me-1"
-                            onClick={() => {
-                              const latestRemarks = mappedClaims.find(c => c.id === claim.id)?.remarks || "";
-                              approveClaim(claim.id, latestRemarks);
-                            }}
-                          >
-                            <i className="bi bi-check"></i> Approve
-                          </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => {
-                              const latestRemarks = mappedClaims.find(c => c.id === claim.id)?.remarks || "";
-                              rejectClaim(claim.id, latestRemarks);
-                            }}
-                          >
-                            <i className="bi bi-x"></i> Reject
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* ------------------ View Claim Modal ------------------ */}
-      {viewingClaim && (
-        <div
-          className="modal show d-block"
-          tabIndex="-1"
-          role="dialog"
-          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
-        >
-          <div className="modal-dialog modal-lg">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Claim Details #{viewingClaim.id}</h5>
-                <button type="button" className="btn-close" onClick={closeViewModal}></button>
-              </div>
-              <div className="modal-body text-start">
-                <p><strong>Employee Name:</strong> {viewingClaim.employeeName}</p>
-                <p><strong>Employee ID:</strong> {viewingClaim.employeeIdDisplay}</p>
-                <p><strong>Claim Type:</strong> {viewingClaim.title}</p>
-                <p><strong>Description:</strong> {viewingClaim.description}</p>
-                <p><strong>Amount:</strong> ${viewingClaim.amount}</p>
-                <p><strong>Date Submitted:</strong> {viewingClaim.claimDate?.split("T")[0]}</p>
-                <p><strong>Status:</strong> {viewingClaim.status}</p>
-                <p><strong>Policy Name:</strong> {viewingClaim.policyName}</p>
-                <p><strong>Remarks:</strong> {viewingClaim.remarks || "-"}</p>
-
-                {/* Documents */}
-                <div>
-                  <strong>Documents:</strong>
-                  {viewingClaim.documents?.length > 0 ? (
-                    <ul>
-                      {viewingClaim.documents.map((doc, idx) => (
-                        <li key={idx}>
-                          <a
-                            href={`http://localhost:8080${doc}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            {doc.split("/").pop()}
-                          </a>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p>No documents uploaded</p>
-                  )}
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={closeViewModal}>Close</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    <HRClaims
+      pendingClaims={pendingClaims}
+      statusFilter={statusFilter}
+      setStatusFilter={setStatusFilter}
+      displayedClaims={displayedClaims}
+      mappedClaims={mappedClaims}
+      setMappedClaims={setMappedClaims}
+      viewingClaim={viewingClaim}
+      openViewModal={openViewModal}
+      closeViewModal={closeViewModal}
+      approveClaim={approveClaim}
+      rejectClaim={rejectClaim}
+      downloadCSV={downloadCSV}
+      downloadPDF={downloadPDF}
+    />
   );
-
-
-
   
 
-  
-      
-case "viewPolicy":
-  return (
-    <div>
-      <h4 className="mb-4">Available Policies</h4>
-      <div className="card shadow-sm">
-        <div className="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">Policies List</h5>
-          <i className="bi bi-shield-check"></i>
-        </div>
-        <div className="card-body">
-          {policies.length > 0 ? (
-            <div className="table-responsive">
-              <table className="table table-hover align-middle">
-                <thead className="table-light">
-                  <tr>
-                    <th>Policy Name</th>
-                    <th>Type</th>
-                    <th>Provider</th>
-                    <th>Coverage Amount</th>
-                    <th>Monthly Premium</th>
-                    <th>Renewal Date</th>
-                    <th>Status</th>
-                    <th style={{ minWidth: "250px" }}>Description</th>
-                    <th>Documents</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {policies.map((policy) => (
-                    <tr key={policy.id}>
-                      <td className="fw-bold">{policy.policyName}</td>
-                      <td>{policy.policyType}</td>
-                      <td>{policy.providerName}</td>
-                      <td>${policy.coverageAmount.toLocaleString()}</td>
-                      <td>${policy.monthlyPremium}</td>
-                      <td>{new Date(policy.renewalDate).toLocaleDateString()}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            policy.policyStatus === "Active"
-                              ? "bg-success"
-                              : "bg-secondary"
-                          }`}
-                        >
-                          {policy.policyStatus}
-                        </span>
-                      </td>
-                      <td>
-                        <div
-                          style={{
-                            whiteSpace: "pre-line",
-                            wordWrap: "break-word",
-                            maxHeight: "150px",
-                            overflowY: "auto",
-                          }}
-                        >
-                          {policy.policyDescription}
-                        </div>
-                      </td>
-                      <td>
-                        <div className="d-flex flex-column gap-1">
-                          {policy.contractUrl && (
-                            <a
-                              href={policy.contractUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-outline-primary btn-sm"
-                            >
-                              Contract
-                            </a>
-                          )}
-                          {policy.termsUrl && (
-                            <a
-                              href={policy.termsUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-outline-primary btn-sm"
-                            >
-                              Terms
-                            </a>
-                          )}
-                          {policy.claimFormUrl && (
-                            <a
-                              href={policy.claimFormUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-outline-primary btn-sm"
-                            >
-                              Claim Form
-                            </a>
-                          )}
-                          {policy.annexureUrl && (
-                            <a
-                              href={policy.annexureUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="btn btn-outline-primary btn-sm"
-                            >
-                              Annexure
-                            </a>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p className="text-muted">No policies found.</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
+case "policies":
+  return <HRPolicies policies={policies} />;
 
 
 case "employees":
   return (
-    <div>
-      <h4 className="mb-4">Employee Management</h4>
-
-      {/* Search Employees */}
-      <div className="card mb-4">
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">Search Employees</h5>
-        </div>
-        <div className="card-body">
-          <div className="row">
-            <div className="col-md-6 mb-3">
-              <label className="form-label">Employee Name</label>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Search by name"
-                value={searchName}
-                onChange={(e) => setSearchName(e.target.value)}
-              />
-            </div>
-            <div className="col-md-3 mb-3">
-              <label className="form-label">Role</label>
-              <select
-                className="form-select"
-                value={policyFilter}
-                onChange={(e) => setPolicyFilter(e.target.value)}
-              >
-                <option value="">All</option>
-                <option value="EMPLOYEE">Employee</option>
-                <option value="HR">HR</option>
-                <option value="AGENT">Agent</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* All Employees */}
-      <div className="card">
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">All Employees</h5>
-        </div>
-        <div className="card-body">
-          <div className="table-responsive">
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Employee ID</th>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Role</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEmployees.length > 0 ? (
-                  filteredEmployees.map(employee => (
-                    <tr key={employee.id}>
-                      <td>{employee.employeeId}</td> {/* ✅ Added Employee ID */}
-                      <td>{employee.name}</td>
-                      <td>{employee.email}</td>
-                      <td>
-                        <span className="badge bg-info">{employee.role}</span>
-                      </td>
-                      <td>
-                        <span className={`badge ${employee.active ? 'bg-success' : 'bg-secondary'}`}>
-                          {employee.active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-sm btn-outline-primary me-1"
-                          onClick={() => handleView(employee)}
-                        >
-                          <i className="bi bi-eye"></i> View
-                        </button>
-                        <button
-                          className="btn btn-sm btn-outline-warning"
-                          onClick={() => handleEdit(employee)}
-                        >
-                          <i className="bi bi-pencil"></i> Edit
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="text-center">No employees found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-   {/* ✅ Bootstrap Modal for Employee Details */}
-{showModal && selectedEmployee && (
-  <>
-    {/* Backdrop */}
-    <div
-      className="modal-backdrop fade show"
-      onClick={handleCloseModal}
-    ></div>
-
-    <div className="modal fade show d-block" tabIndex="-1">
-      <div className="modal-dialog">
-        <div className="modal-content">
-          <div className="modal-header bg-primary text-white">
-            <h5 className="modal-title">Employee Details</h5>
-            <button
-              type="button"
-              className="btn-close btn-close-white"
-              onClick={handleCloseModal}
-            ></button>
-          </div>
-          <div className="modal-body">
-            <p><strong>Employee ID:</strong> {selectedEmployee.employeeId}</p> {/* ✅ Added Employee ID */}
-            <p><strong>Name:</strong> {selectedEmployee.name}</p>
-            <p><strong>Email:</strong> {selectedEmployee.email}</p>
-            <p><strong>Role:</strong> {selectedEmployee.role}</p>
-            <p>
-              <strong>Status:</strong>{" "}
-              <span className={`badge ${selectedEmployee.active ? 'bg-success' : 'bg-secondary'}`}>
-                {selectedEmployee.active ? "Active" : "Inactive"}
-              </span>
-            </p>
-          </div>
-          <div className="modal-footer">
-            <button className="btn btn-secondary" onClick={handleCloseModal}>
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </>
-)}
-    </div>
+    <HREmployees
+      employees={employees}
+      searchName={searchName}
+      setSearchName={setSearchName}
+      policyFilter={policyFilter}
+      setPolicyFilter={setPolicyFilter}
+      filteredEmployees={filteredEmployees}
+      handleView={handleView}
+      handleEdit={handleEdit}
+      showModal={showModal}
+      selectedEmployee={selectedEmployee}
+      handleCloseModal={handleCloseModal}
+    />
   );
+
 
 
 
@@ -1208,8 +1024,8 @@ case "employees":
       {/* Added View Policy */}
       <a
         href="#"
-        className={`nav-link ${activeTab === "viewPolicy" ? "active" : ""}`}
-        onClick={(e) => { e.preventDefault(); setActiveTab("viewPolicy"); }}
+        className={`nav-link ${activeTab === "policies" ? "active" : ""}`}
+        onClick={(e) => { e.preventDefault(); setActiveTab("policies"); }}
       >
         <i className="bi bi-card-list me-2"></i> View Policy
       </a>

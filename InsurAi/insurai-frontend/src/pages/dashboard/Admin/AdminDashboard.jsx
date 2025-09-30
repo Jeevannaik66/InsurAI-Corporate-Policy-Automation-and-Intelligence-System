@@ -7,7 +7,10 @@ import "../Dashboard.css";
 import AgentRegister from "../../auth/AgentRegister";
 import HrRegister from "../../auth/HRRegister";
 import AdminPolicy from "./AdminPolicy";
+import AdminAllClaims from './AdminAllClaims';
 import AdminReportsAnalytics from "./AdminReportsAnalytics"; // adjust path as needed
+import AdminUserManagement from "./AdminUserManagement";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from "recharts";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -186,154 +189,212 @@ export default function AdminDashboard() {
 
 
   // ---------------- Render content ----------------
-  const renderContent = () => {
-    switch (activeTab) {
-      case "home":
-        return (
-          <div>
-            <h4 className="mb-4">Admin Dashboard Overview</h4>
-            <div className="row mb-4">
-              <div className="col-md-3 mb-3">
-                <div className="card bg-primary text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Total Users</h5>
-                    <h2 className="card-text">{users.length}</h2>
-                    <p>
-                      <i className="bi bi-people-fill"></i>{" "}
-                      {users.filter((u) => u.role === "HR").length} HR,{" "}
-                      {users.filter((u) => u.role === "Agent").length} Agents,{" "}
-                      {users.filter((u) => u.role === "Employee").length} Employees
-                    </p>
+ const renderContent = () => {
+  switch (activeTab) {
+    case "home":
+      // --- Users ---
+      const totalUsers = users.length;
+      const totalHR = users.filter(u => u.role === "HR").length;
+      const totalAgents = users.filter(u => u.role === "Agent").length;
+      const totalEmployees = users.filter(u => u.role === "Employee").length;
+      const activeUsers = users.filter(u => u.status === "Active").length;
+      const inactiveUsers = users.filter(u => u.status === "Inactive").length;
+
+      // --- Claims ---
+      const totalClaims = claims.length;
+      const pendingClaims = claims.filter(c => c.status === "Pending").length;
+      const resolvedClaims = claims.filter(c => c.status === "Resolved").length;
+      const highPriorityAlerts = claims.filter(c => c.priority === "High").length;
+
+      // --- Time-based stats ---
+      const today = new Date().toDateString();
+      const newUsersToday = users.filter(u => new Date(u.createdAt).toDateString() === today).length;
+      const resolvedToday = claims.filter(c => c.status === "Resolved" && new Date(c.updatedAt).toDateString() === today).length;
+
+      // --- Recent Activity ---
+      const recentActivities = claims
+        .slice(-5)
+        .reverse()
+        .map(c => ({
+          id: c.id,
+          action: `Claim by ${c.employeeName}`,
+          user: `Policy: ${c.policyName}`,
+          time: new Date(c.createdAt).toLocaleString(),
+          type: c.status === "Pending" ? "warning" : c.status === "Resolved" ? "success" : "info",
+        }));
+
+      // --- Chart Data ---
+      const claimChartData = [
+        { name: "Pending", value: pendingClaims },
+        { name: "Resolved", value: resolvedClaims },
+        { name: "High Priority", value: highPriorityAlerts },
+      ];
+
+      return (
+        <div className="admin-dashboard">
+          {/* Header */}
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <div>
+              <h4 className="fw-bold text-gray-800 mb-1">Admin Dashboard</h4>
+              <p className="text-gray-600 mb-0">Welcome back! Here's what's happening today.</p>
+            </div>
+            <div className="text-end">
+              <small className="text-gray-500">Last updated: {new Date().toLocaleTimeString()}</small>
+              <div className="badge bg-success ms-2">
+                <i className="bi bi-circle-fill me-1" style={{ fontSize: "6px" }}></i>
+                System Online
+              </div>
+            </div>
+          </div>
+
+          {/* Metric Cards */}
+          <div className="row mb-4">
+            {/* Users */}
+            <div className="col-xl-3 col-md-6 mb-4">
+              <div className="card border-left-primary shadow-sm h-100">
+                <div className="card-body">
+                  <h6 className="text-primary text-uppercase mb-1">Total Users</h6>
+                  <h2 className="fw-bold">{totalUsers}</h2>
+                  <p className="mb-0 small text-muted">
+                    {totalHR} HR • {totalAgents} Agents • {totalEmployees} Employees
+                  </p>
+                </div>
+              </div>
+            </div>
+            {/* User Status */}
+            <div className="col-xl-3 col-md-6 mb-4">
+              <div className="card border-left-success shadow-sm h-100">
+                <div className="card-body">
+                  <h6 className="text-success text-uppercase mb-1">User Status</h6>
+                  <h2 className="fw-bold">
+                    {activeUsers}
+                    <small className="text-muted"> / {totalUsers}</small>
+                  </h2>
+                  <div className="progress progress-sm">
+                    <div
+                      className="progress-bar bg-success"
+                      style={{ width: `${(activeUsers / totalUsers) * 100 || 0}%` }}
+                    ></div>
                   </div>
                 </div>
               </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-success text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Claims This Month</h5>
-                    <h2 className="card-text">{fraudAlerts.length}</h2>
-                    <p>
-                      <i className="bi bi-check-circle-fill"></i> Claims logged
-                    </p>
-                  </div>
+            </div>
+            {/* Claims */}
+            <div className="col-xl-3 col-md-6 mb-4">
+              <div className="card border-left-warning shadow-sm h-100">
+                <div className="card-body">
+                  <h6 className="text-warning text-uppercase mb-1">Claims</h6>
+                  <h2 className="fw-bold">{totalClaims}</h2>
+                  <p className="small mb-1">
+                    <span className="badge bg-warning">{pendingClaims}</span> Pending
+                  </p>
+                  <p className="small mb-1">
+                    <span className="badge bg-success">{resolvedClaims}</span> Resolved
+                  </p>
+                  <p className="small mb-0">
+                    <span className="badge bg-danger">{highPriorityAlerts}</span> High Priority
+                  </p>
                 </div>
               </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-warning text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">Fraud Alerts</h5>
-                    <h2 className="card-text">{fraudAlerts.length}</h2>
-                    <p>
-                      <i className="bi bi-exclamation-triangle-fill"></i> Alerts
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="col-md-3 mb-3">
-                <div className="card bg-info text-white">
-                  <div className="card-body">
-                    <h5 className="card-title">System Health</h5>
-                    <h2 className="card-text">100%</h2>
-                    <p>
-                      <i className="bi bi-heart-fill"></i> All Systems Operational
-                    </p>
-                  </div>
+            </div>
+            {/* System */}
+            <div className="col-xl-3 col-md-6 mb-4">
+              <div className="card border-left-info shadow-sm h-100">
+                <div className="card-body">
+                  <h6 className="text-info text-uppercase mb-1">System Health</h6>
+                  <h2 className="fw-bold">100%</h2>
+                  <p className="small text-muted mb-0">All systems operational</p>
                 </div>
               </div>
             </div>
           </div>
-        );
 
-      case "users":
-        return (
-          <div>
-            <div className="d-flex justify-content-between align-items-center mb-4">
-              <h4>User Management</h4>
-              <div>
-                <button
-                  className="btn btn-outline-primary me-2"
-                  onClick={() => setActiveTab("registerHR")}
-                >
-                  <i className="bi bi-person-plus me-1"></i> Add HR
-                </button>
-                <button
-                  className="btn btn-outline-primary"
-                  onClick={() => setActiveTab("registerAgent")}
-                >
-                  <i className="bi bi-person-plus me-1"></i> Add Agent
-                </button>
+          {/* Charts & Info */}
+          <div className="row mb-4">
+            {/* Quick Stats */}
+            <div className="col-lg-4 mb-4">
+              <div className="card shadow-sm border-0 h-100">
+                <div className="card-header bg-white py-3">
+                  <h6 className="m-0 fw-bold text-gray-800">
+                    <i className="bi bi-speedometer2 me-2"></i>
+                    Quick Stats
+                  </h6>
+                </div>
+                <div className="card-body">
+                  <p className="mb-2">New Users Today: <b>{newUsersToday}</b></p>
+                  <p className="mb-2">Pending Claims: <b>{pendingClaims}</b></p>
+                  <p className="mb-0">Resolved Today: <b>{resolvedToday}</b></p>
+                </div>
               </div>
             </div>
 
-            <div className="card">
-              <div className="card-header bg-primary text-white">
-                <h5 className="mb-0">All Users</h5>
+            {/* Chart */}
+            <div className="col-lg-8 mb-4">
+              <div className="card shadow-sm border-0 h-100">
+                <div className="card-header bg-white py-3">
+                  <h6 className="m-0 fw-bold text-gray-800">
+                    <i className="bi bi-bar-chart-line me-2"></i>
+                    Claims Overview
+                  </h6>
+                </div>
+                <div className="card-body" style={{ height: "300px" }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={claimChartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="value" fill="#ffc107" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="card shadow-sm border-0 mb-4">
+            <div className="card-header bg-white">
+              <h6 className="m-0 fw-bold text-gray-800">
+                <i className="bi bi-clock-history me-2"></i> Recent Activity
+              </h6>
+            </div>
+            <div className="card-body">
+              {recentActivities.length > 0 ? (
+                <ul className="list-group list-group-flush">
+                  {recentActivities.map(a => (
+                    <li key={a.id} className="list-group-item border-0 px-0">
+                      <b>{a.action}</b> — <span className="text-muted">{a.user}</span>
+                      <div className="small text-gray-500">{a.time}</div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-muted">No recent activity</p>
+              )}
+            </div>
+          </div>
+
+          {/* Alerts */}
+          {highPriorityAlerts > 0 && (
+            <div className="card border-left-danger shadow-sm">
               <div className="card-body">
-                <div className="table-responsive">
-                  <table className="table table-striped">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Role</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((user) => (
-                        <tr key={user.id}>
-                          <td>{user.name}</td>
-                          <td>{user.email}</td>
-                          <td>
-                            <span
-                              className={`badge ${
-                                user.role === "HR"
-                                  ? "bg-primary"
-                                  : user.role === "Agent"
-                                  ? "bg-info"
-                                  : "bg-secondary"
-                              }`}
-                            >
-                              {user.role}
-                            </span>
-                          </td>
-                          <td>
-                            <span
-                              className={`badge ${
-                                user.status === "Active"
-                                  ? "bg-success"
-                                  : "bg-warning"
-                              }`}
-                            >
-                              {user.status}
-                            </span>
-                          </td>
-                          <td>
-                            <button className="btn btn-sm btn-outline-primary me-1">
-                              <i className="bi bi-pencil"></i>
-                            </button>
-                            <button className="btn btn-sm btn-outline-danger">
-                              <i className="bi bi-trash"></i>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {users.length === 0 && (
-                        <tr>
-                          <td colSpan="5" className="text-center">
-                            No users found
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <h6 className="text-danger">
+                  <i className="bi bi-exclamation-triangle me-2"></i> Action Required
+                </h6>
+                <p>You have {highPriorityAlerts} high-priority claims.</p>
+                <button className="btn btn-danger btn-sm" onClick={() => setActiveTab("claims")}>
+                  Review Claims
+                </button>
               </div>
             </div>
-          </div>
-        );
+          )}
+        </div>
+      );
+
+case "users":
+  return <AdminUserManagement users={users} setActiveTab={setActiveTab} />;
 
       case "registerHR":
         return (
@@ -358,99 +419,8 @@ export default function AdminDashboard() {
         case "createPolicy":
         return <AdminPolicy />;
 
- case "claims":
-  return (
-    <div>
-      <h4 className="mb-4">All Claims</h4>
-
-      <div className="card">
-        <div className="card-header bg-primary text-white">
-          <h5 className="mb-0">Claims List</h5>
-        </div>
-        <div className="card-body">
-          <div className="table-responsive">
-            <table className="table table-striped">
-              <thead>
-                <tr>
-                  <th>Claim ID</th>
-                  <th>Employee Name</th>
-                  <th>Employee ID</th>
-                  <th>Policy Name</th>
-                  <th>Assigned HR</th>
-                  <th>Status</th>
-                  <th>Documents</th>
-                  <th>Remarks</th>
-                  <th>Submitted On</th>
-                </tr>
-              </thead>
-              <tbody>
-                {claims.length > 0 ? (
-                  claims.map((claim) => (
-                    <tr key={claim.id}>
-                      <td>{claim.id}</td>
-                      <td>{claim.employeeName || "Unknown"}</td>
-                      <td>{claim.employeeIdDisplay || "N/A"}</td>
-                      <td>{claim.policyName || "N/A"}</td>
-                      <td>{claim.assignedHrName || "Not Assigned"}</td>
-                      <td>
-                        <span
-                          className={`badge ${
-                            claim.status === "Approved"
-                              ? "bg-success"
-                              : claim.status === "Rejected"
-                              ? "bg-danger"
-                              : "bg-warning"
-                          }`}
-                        >
-                          {claim.status}
-                        </span>
-                      </td>
-                      {/* Documents */}
-                    <td>
-                      {claim.documents?.length > 0 ? (
-                        <div className="d-flex flex-column gap-1">
-                          {claim.documents.map((doc, idx) => (
-                            <a
-                              key={idx}
-                              href={`http://localhost:8080${doc}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="btn btn-sm btn-outline-secondary text-truncate"
-                              style={{ maxWidth: "120px" }}
-                              title={doc.split("/").pop()}
-                            >
-                              <i className="bi bi-file-earmark-text me-1"></i>
-                              Doc {idx + 1}
-                            </a>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-muted">No docs</span>
-                      )}
-                    </td>
-                      <td>{claim.remarks || "-"}</td>
-                      <td>
-                        {claim.claimDate
-                          ? new Date(claim.claimDate).toLocaleDateString()
-                          : "N/A"}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="9" className="text-center">
-                      No claims found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
+case "claims":
+      return <AdminAllClaims claims={claims} />;
 
  case "reports":
   return <AdminReportsAnalytics />;

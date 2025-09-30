@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, BarChart, Ba
 import { CSVLink } from "react-csv";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+import { useMemo } from "react";
 
 export default function AdminReportsAnalytics() {
   const [users, setUsers] = useState([]);
@@ -59,34 +60,43 @@ export default function AdminReportsAnalytics() {
   }, []);
 
   // Filter data based on date
-  const filterDataByDate = (data) => {
-    if (dateFilter === "all") return data;
-    const now = new Date();
-    const filterDate = new Date();
+ const filterDataByDate = (data, type) => {
+  if (dateFilter === "all") return data;
+  const now = new Date();
+  let filterDate = new Date();
 
-    switch(dateFilter) {
-      case "today":
-        filterDate.setHours(0,0,0,0);
-        break;
-      case "week":
-        filterDate.setDate(now.getDate() - 7);
-        break;
-      case "month":
-        filterDate.setMonth(now.getMonth() - 1);
-        break;
-      case "year":
-        filterDate.setFullYear(now.getFullYear() - 1);
-        break;
-      default:
-        return data;
-    }
+  switch(dateFilter) {
+    case "today":
+      filterDate.setHours(0,0,0,0);
+      break;
+    case "week":
+      filterDate.setDate(now.getDate() - 7);
+      break;
+    case "month":
+      filterDate.setMonth(now.getMonth() - 1);
+      break;
+    case "year":
+      filterDate.setFullYear(now.getFullYear() - 1);
+      break;
+    default:
+      return data;
+  }
 
-    return data.filter(item => new Date(item.created_at || item.claim_date || item.joinDate) >= filterDate);
-  };
+  return data.filter(item => {
+    let itemDate;
+    if (type === "claims") itemDate = item.claimDate || item.created_at;
+    else if (type === "users") itemDate = item.joinDate;
+    else if (type === "policies") itemDate = item.created_at;
 
-  const filteredClaims = filterDataByDate(claims);
-  const filteredUsers = filterDataByDate(users);
-  const filteredPolicies = filterDataByDate(policies);
+    return itemDate && new Date(itemDate) >= filterDate;
+  });
+};
+
+
+const filteredClaims = useMemo(() => filterDataByDate(claims, "claims"), [claims, dateFilter]);
+const filteredUsers = useMemo(() => filterDataByDate(users, "users"), [users, dateFilter]);
+const filteredPolicies = useMemo(() => filterDataByDate(policies, "policies"), [policies, dateFilter]);
+
 
   // ==================== CALCULATED METRICS ====================
 
@@ -341,7 +351,7 @@ console.log("Claims sample:", claims[0]);
         <div className="col-12">
           <div className="d-flex justify-content-between align-items-center">
             <div>
-              <h2 className="mb-1">Admin Reports & Analytics</h2>
+              <h4 className="fw-bold text-gray-800 mb-1">Admin Reports & Analytics</h4>
               <p className="text-muted mb-0">Comprehensive analytics across employees, HR, agents, policies, and claims</p>
             </div>
             <div className="bg-primary rounded p-2">
